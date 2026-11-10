@@ -1,24 +1,29 @@
 'use strict';
+/* Windows that must break (a protected cat window is not one of them). */
+const targets=()=>panes.filter(p=>!p.safe);
 function checkWin(){
-  if(won||sandbox||panes.some(p=>!p.broken))return;won=true;$('hint').hidden=true;
+  if(won||sandbox||targets().some(p=>!p.broken))return;won=true;$('hint').hidden=true;
   if(drag){drag=null;hidePreview()}
   const house=LVL.type==='house';
   if(house)later(.75,()=>{grumpT=0;grump.visible=true;sfx.hey();$('bubble').hidden=false});
   later(house?2.1:1.15,showCard);
 }
 function showCard(){
-  const n=panes.length,need=LVL.panes.reduce((k,p)=>k+1+(p.armor||0)+((p.hp||1)-1),0),st=used<=need?3:used===need+1?2:1;
-  $('cardTitle').textContent=st===3?'Perfect smash!':'Smashed!';
+  const tg=targets(),n=tg.length,need=LVL.panes.reduce((k,p)=>k+(p.safe?0:1+(p.armor||0)+((p.hp||1)-1)),0)+(LVL.island?1:0)+(LVL.switch?1:0);
+  let st=used<=need?3:used===need+1?2:1;
+  if(LVL.bonus){const k=tg.filter(p=>p.broken).length;st=k===n?3:k>=n*.75?2:1;
+    $('cardTitle').textContent=k===n?'Perfect smash!':'Bonus done!';$('cardText').textContent=k+' of '+n+' windows'}
+  else{$('cardTitle').textContent=st===3?'Perfect smash!':'Smashed!';$('cardText').textContent=n+(n>1?' windows':' window')+' with '+used+(used>1?' balls':' ball')}
   $('stars').innerHTML='<b>'+'★'.repeat(st)+'</b>'+'★'.repeat(3-st);
-  $('cardText').textContent=n+(n>1?' windows':' window')+' with '+used+(used>1?' balls':' ball');
   $('next').textContent=level===LV.length-1?'Play again':'Next';
   $('card').hidden=false;
 }
 let failing=false,spawnWait=0;
 function checkFail(){
   if(won||failing||ballsLeft>0||cur)return;
-  if(balls.some(b=>b.state==='fly'||b.state==='inside'))return;
-  if(!panes.some(p=>!p.broken))return;
+  if(balls.some(b=>b.state==='fly'||b.state==='inside')||hopBusy())return;
+  if(!targets().some(p=>!p.broken))return;
+  if(LVL.bonus){won=true;later(.6,showCard);return} /* bonus level: no fail, just count what broke */
   failing=true;const t=$('toast');t.textContent='Out of balls';t.hidden=false;
   later(.95,()=>{failing=false;loadLevel(level)});
 }
@@ -34,8 +39,9 @@ function wallHit(b,kind){ /* kind: 'thud' | 'clang' | 'soft' (no sound or word; 
 }
 function crossPlane(b){
   if(b.live){b.live=false;b.a.set(0,-S.gravity,0)}
+  if(hop&&hop.stage<2)return; /* island hop, first kick: the house is still far away */
   const x=b.p.x,y=b.p.y;
-  for(const p of panes){if(p.sky)continue;if(Math.abs(x-p.x)<=p.w/2+.06&&Math.abs(y-p.y)<=p.h/2+.06){
+  for(const p of panes){if(p.xf)continue;if(Math.abs(x-p.x)<=p.w/2+.06&&Math.abs(y-p.y)<=p.h/2+.06){
     if(!p.broken){
       if(p.shutF>0&&y>p.shutY-R*.3){wallHit(b,'clang');return}
       if(p.armor>0){breakBoards(p,b);wallHit(b,'soft');return}
@@ -46,8 +52,9 @@ function crossPlane(b){
   if(LVL.type==='sandbox')return;
   if(LVL.type==='stand'){const f=.3;for(const p of panes){
     if(Math.abs(x-p.x)<=p.w/2+f&&Math.abs(y-p.y)<=p.h/2+f){wallHit(b,'thud');return}
-    if(Math.abs(Math.abs(x-p.x)-(p.w/2+.1))<.26&&y<p.y){wallHit(b,'thud');return}}
+    if(!p.hang&&Math.abs(Math.abs(x-p.x)-(p.w/2+.1))<.26&&y<p.y){wallHit(b,'thud');return}}
     return}
+  if(LVL.type==='greenhouse'){if(Math.abs(x)<=GH.hw+.1&&y<=GH.top+.1)wallHit(b,'thud');return}
   const W=LVL.W,H=LVL.H,Gb=LVL.G,top=Math.abs(x)<=W?H+Gb*(1-Math.abs(x)/W):-1;
   if(Math.abs(x)<=W&&y<=top+.1)wallHit(b,'thud');
 }
@@ -59,10 +66,10 @@ function stepBall(b,dt){
     const z0=b.p.z;b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
     if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
-    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b)}
+    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b);padHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
-    if(b.p.y<fl){b.p.y=fl;
+    if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;b.p.y=fl;
       if(b.live){ /* live kick that falls short: bounce, roll on the grass, stop */
         if(b.state==='fly'){b.state='ground';b.age=0;b.a.set(0,-S.gravity,0)}
         if(b.v.y<-1.5){if(b.v.y<-3)sfx.thud();b.v.y*=-.45;b.v.x*=.85;b.v.z*=.85}
@@ -71,7 +78,7 @@ function stepBall(b,dt){
     if(b.state==='dead'&&b.pane){b.p.z=clamp(b.p.z,-5.2,-.4)}
   }
   const sp=b.v.length();if(sp>.05)b.m.rotateOnWorldAxis(b.spin,sp/R*dt*.75);
-  b.sh.position.x=b.p.x;b.sh.position.z=b.p.z;b.sh.material.opacity=clamp(1-b.p.y/9,.15,1);b.sh.visible=b.state!=='inside'&&b.state!=='dead';
+  b.sh.position.x=b.p.x;b.sh.position.z=b.p.z;b.sh.material.opacity=clamp(1-b.p.y/9,.15,1);b.sh.visible=b.state!=='inside'&&b.state!=='dead'&&!b.sunk;
   if(b.state==='fly'&&Math.random()<.9)spark.emit(b.p.x,b.p.y,b.p.z,0,0,0,b.live?.42:.2,b.live?[.8,.8,.8]:[.55,.55,.55],0);
   const done=b.age>(b.state==='fly'?3:b.state==='inside'?1.6:2.2)||b.p.z<-16;
   if(done){if(b.state==='fly')b.state='gone';removeBallMesh(b);return false}
@@ -92,7 +99,7 @@ function frame(now){
 function tick(dt,real){
   for(let i=timers.length-1;i>=0;i--){timers[i].t-=real;if(timers[i].t<=0){const f=timers[i].f;timers.splice(i,1);f()}}
   mechTick(dt);
-  if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
+  if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!hopBusy()&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
   for(let i=balls.length-1;i>=0;i--)if(!stepBall(balls[i],dt))balls.splice(i,1);
   for(let i=shards.length-1;i>=0;i--){const s=shards[i];if(s.rest)continue;
@@ -114,8 +121,8 @@ function tick(dt,real){
     const s=toScreen(0,3.5,1.1),bb=$('bubble');bb.style.left=s[0]+'px';bb.style.top=s[1]+'px'}
   shakeA=Math.max(0,shakeA-real*2.6);zoomK=Math.max(0,zoomK-real*3.2);focusK=Math.max(0,focusK-real*1.5);
   const sx=(Math.random()-.5)*shakeA*.75,sy=(Math.random()-.5)*shakeA*.75,fk=focusK*focusK;
-  camera.position.set(camBase.x+sx+focus.x*fk*.1,camBase.y+sy+focus.y*fk*.03,camBase.z-fk*1.5);
-  const lx=lerp(camLook.x,focus.x,fk*.2),ly=lerp(camLook.y,focus.y,fk*.12);
+  camera.position.set(camBase.x+sx+focus.x*fk*.1,camBase.y+sy+focus.y*fk*.03+camOff.y,camBase.z-fk*1.5);
+  const lx=lerp(camLook.x,focus.x,fk*.2),ly=lerp(camLook.y,focus.y,fk*.12)+camOff.y*.4;
   camera.lookAt(lx,ly,0);
   camera.zoom=1+zoomK*zoomK*.07;camera.updateProjectionMatrix();
   checkFail();

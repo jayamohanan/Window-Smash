@@ -22,6 +22,11 @@ const sfx={
   rustle(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',2600,.6,.55,.26);noise(t+.04,'highpass',4200,.8,.3,.18);noise(t,'lowpass',400,.8,.4,.08)},
   crack(){if(!can())return;const t=ac.currentTime;noise(t,'highpass',3000,.8,.9,.07);tone(t,'triangle',2400,1800,.3,.09);tone(t,'sine',300,90,.45,.1);for(let i=0;i<6;i++)tone(t+.02+i*.02,'triangle',rnd(3000,6000),rnd(2500,5000),.08,.04)},
   wood(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',900,1.2,1,.13);tone(t,'triangle',220,90,.6,.14);for(let i=0;i<5;i++)noise(t+.03+i*.03,'bandpass',rnd(1200,2400),2,.35,.05)},
+  meow(){if(!can())return;const t=ac.currentTime,o=ac.createOscillator(),b=ac.createBiquadFilter(),g=ac.createGain();o.type='sawtooth';o.frequency.setValueAtTime(480,t);o.frequency.linearRampToValueAtTime(840,t+.13);o.frequency.exponentialRampToValueAtTime(360,t+.62);b.type='bandpass';b.frequency.setValueAtTime(900,t);b.frequency.linearRampToValueAtTime(2300,t+.15);b.frequency.linearRampToValueAtTime(1000,t+.62);b.Q.value=4;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.75,t+.05);g.gain.exponentialRampToValueAtTime(.001,t+.66);o.connect(b);b.connect(g);g.connect(master);o.start(t);o.stop(t+.7)},
+  splash(){if(!can())return;const t=ac.currentTime;noise(t,'lowpass',900,.8,.9,.35);noise(t+.02,'bandpass',2200,.7,.4,.22);tone(t,'sine',320,110,.4,.18)},
+  whoosh(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',500,.7,.35,1.1);noise(t+.25,'bandpass',900,.7,.25,.8)},
+  ding(){if(!can())return;const t=ac.currentTime;tone(t,'sine',1320,1320,.5,1.2);tone(t,'triangle',2640,2630,.18,.8);tone(t,'sine',1980,1975,.12,1)},
+  boing(){if(!can())return;const t=ac.currentTime;tone(t,'sine',140,520,.7,.32);tone(t,'triangle',280,900,.15,.25)},
   hey(){if(!can())return;const t=ac.currentTime,o=ac.createOscillator(),b=ac.createBiquadFilter(),g=ac.createGain();o.type='sawtooth';o.frequency.setValueAtTime(190,t);o.frequency.linearRampToValueAtTime(320,t+.09);o.frequency.exponentialRampToValueAtTime(150,t+.42);b.type='bandpass';b.frequency.setValueAtTime(600,t);b.frequency.linearRampToValueAtTime(1500,t+.12);b.Q.value=3;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.8,t+.04);g.gain.exponentialRampToValueAtTime(.001,t+.45);o.connect(b);b.connect(g);g.connect(master);o.start(t);o.stop(t+.47)}
 };
 

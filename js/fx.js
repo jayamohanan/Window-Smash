@@ -68,6 +68,7 @@ function smash(p,b,lh){
   if(p.sky){b.live=false;b.ghost=true;b.state='passed';b.age=0;b.a.set(0,-S.gravity,0);b.v.multiplyScalar(.4)}
   else if(p.room){const dir=p.room.target.clone().sub(b.p).normalize();b.v.copy(dir).multiplyScalar(Math.max(13,speed*.6));b.a.set(0,0,0);b.state='inside';b.pane=p}
   else{b.v.multiplyScalar(.72);b.a.x=0;b.state='passed'}
+  if(p.safe){catScare(p);return}
   checkWin();
 }
 function propSmash(p,b){

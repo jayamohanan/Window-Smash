@@ -19,7 +19,7 @@ const shadowTex=canvasTex(64,64,(g,w,h)=>{const a=g.createRadialGradient(32,32,2
 
 /* ---------- balls ---------- */
 function spawnBall(){
-  if(ballsLeft<=0||won||cur)return;
+  if(ballsLeft<=0||won||cur||hopBusy())return;
   const m=new T.Mesh(ballGeo,ballMat);m.castShadow=true;m.position.set(0,R,D);m.scale.setScalar(.01);scene.add(m);
   const sh=new T.Mesh(new T.PlaneGeometry(1.2,1.2),new T.MeshBasicMaterial({map:shadowTex,transparent:true,depthWrite:false}));sh.rotation.x=-Math.PI/2;sh.position.set(0,.04,D);scene.add(sh);
   cur={m,sh,p:m.position,v:new T.Vector3(),a:new T.Vector3(),state:'idle',age:0,born:0,spin:new T.Vector3(1,0,0)};

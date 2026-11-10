@@ -7,7 +7,7 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=T.PCFSoftShadowMap;
 const scene=new T.Scene(), camera=new T.PerspectiveCamera(46,1,.1,400);
 function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);return new T.CanvasTexture(c)}
 scene.background=canvasTex(8,256,(g,w,h)=>{const a=g.createLinearGradient(0,0,0,h);a.addColorStop(0,'#3f9fdf');a.addColorStop(.55,'#9bd6ef');a.addColorStop(.75,'#ffe9bf');g.fillStyle=a;g.fillRect(0,0,w,h)});
-scene.add(new T.HemisphereLight(0xffffff,0x93b56a,.72));
+const hemi=new T.HemisphereLight(0xffffff,0x93b56a,.72);scene.add(hemi);
 const sun=new T.DirectionalLight(0xfff1d6,.72); sun.position.set(-11,20,17); sun.castShadow=true;
 sun.shadow.mapSize.set(1024,1024); Object.assign(sun.shadow.camera,{left:-22,right:22,top:24,bottom:-16,near:1,far:70}); scene.add(sun);
 
@@ -40,7 +40,7 @@ scene.add(spot);
 
 /* ---------- camera layout ---------- */
 let gainX=.02,gainHigh=.02,gainLow=.01;const KNEE=3;
-const camBase=new T.Vector3();let W_=1,H_=1,camLook=new T.Vector3(0,3,0);
+const camBase=new T.Vector3(),camOff=new T.Vector3(); /* camOff: extra lift during the island hop flight */let W_=1,H_=1,camLook=new T.Vector3(0,3,0);
 function layout(){
   W_=$('stage').clientWidth||innerWidth;H_=$('stage').clientHeight||innerHeight;const a=W_/H_;
   renderer.setSize(W_,H_,false);const dpr=Math.min(devicePixelRatio||1,2);fx.width=W_*dpr;fx.height=H_*dpr;fctx.setTransform(dpr,0,0,dpr,0,0);

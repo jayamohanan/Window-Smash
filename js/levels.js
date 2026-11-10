@@ -3,7 +3,15 @@
 /* Pane fields: x,y,w,h on the wall plane; prop+wall = room behind (house only);
    shutter:{phase} = roller shutter on a loop; armor:1 = wooden boards (one kick each); hp:2 = wired glass (cracks first);
    sky:true = skylight in the porch roof (needs porch:true).
-   Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial. */
+   safe:true = protected window (a cat; breaking it fails); rail:{amp,speed,phase} = stand window sliding on a rail; hang:true = hangs from the gantry;
+   back/roof:true = greenhouse back wall / roof glass.
+   Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial,
+   mill = windmill on the house front, gantry = overhead beam, island = island hop, bonus = no fail (greenhouse),
+   switch = bullseye that unlocks shutter:{lock:true} windows, pads = bounce pads, gwall = garden wall, night = lighthouse night, towers = mansion towers. */
+const GX=[-4.5,-1.5,1.5,4.5];
+const ghPanes=()=>[...GX.map(x=>({x,y:1.7,w:2.8,h:2.2})),...GX.map(x=>({x,y:4,w:2.8,h:2.2})),...GX.map(x=>({x,y:2.9,w:2.8,h:4.4,back:true})),...GX.map(x=>({x,w:2.8,h:2.3,roof:true}))];
+const two=()=>[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}];
+const four=()=>[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}];
 const LV=[
  {name:'First Kick',type:'stand',balls:3,tut:true,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
  {name:'Three Stands',type:'stand',balls:5,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
@@ -14,7 +22,21 @@ const LV=[
  {name:'Boarded Up',type:'house',H:5.2,G:2.3,W:7,balls:6,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,armor:1},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,hp:2}]},
  {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:6,porch:true,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
    panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{sky:true,w:2.2,h:1.8}]},
- {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:7,wind:7,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]}
+ {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:7,wind:7,panes:four()},
+ {name:'Bonus: Greenhouse',type:'greenhouse',bonus:true,balls:12,panes:ghPanes()},
+ {name:'Windmill',type:'house',H:5.2,G:2.3,W:7,balls:5,mill:{x:0,y:4.4,z:1.6,len:4.2,speed:.9},panes:[{x:-3.4,y:2.8,w:2.5,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.4,y:2.8,w:2.5,h:2.3,prop:'vase',wall:0xcfe8d5}]},
+ {name:'Rail Riders',type:'stand',balls:5,gantry:{x:8,y:7.2},panes:[{x:0,y:2.4,w:2.5,h:2.1,rail:{amp:4.8,speed:.95}},{x:0,y:5.3,w:2.3,h:1.9,hang:true,rail:{amp:4.8,speed:1.35,phase:Math.PI}}]},
+ {name:'Mind the Cat',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},
+   {x:-4.6,y:6.1,w:2.2,h:2.1,prop:'vase',wall:0xe3d6f2},{x:0,y:6.1,w:2.2,h:2.1,prop:'cat',wall:0xffe6b0,safe:true},{x:4.6,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xd9efc6}]},
+ {name:'Island Hop',type:'house',H:5.2,G:2.3,W:7,balls:6,island:true,panes:two()},
+ {name:'Stormy Mill',type:'house',H:8.2,G:2.2,W:7,balls:8,wind:-6,mill:{x:0,y:4.6,z:1.6,len:4.5,speed:1.1},panes:four()},
+ {name:'Bullseye',type:'house',H:5.2,G:2.3,W:7,balls:5,switch:{x:0,y:6.1,z:.3},panes:two().map(p=>Object.assign(p,{shutter:{lock:true}}))},
+ {name:'Bounce Pads',type:'house',H:8.2,G:2.2,W:7,balls:7,gwall:{z:3,h:3.2},pads:[{x:-3.9,z:6.8},{x:3.9,z:6.8}],panes:four()},
+ {name:'Lighthouse Night',type:'house',H:8.2,G:2.2,W:7,balls:7,night:true,panes:four()},
+ {name:'Shielded Isle',type:'house',H:5.2,G:2.3,W:7,balls:8,island:true,panes:two().map((p,i)=>Object.assign(p,i?{hp:2}:{armor:1}))},
+ {name:'Boss Mansion',type:'house',H:8.2,G:2.4,W:8.5,balls:10,towers:true,board:{z:2.6,w:4,amp:5.6,speed:1.1},panes:[
+   {x:-5.4,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:5.4,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8,hp:2},
+   {x:-5.4,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2,shutter:{phase:0}},{x:0,y:6.1,w:2.2,h:2.1,prop:'cat',wall:0xffe6b0,safe:true},{x:5.4,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6,armor:1}]}
 ];
 
 let level=0,LVL=null,group=null,panes=[],ballsLeft=0,used=0,won=false,cur=null,D=13,hintDone=false,door=null,grump=null,grumpT=-1;
@@ -33,7 +55,7 @@ function clearLevel(){
   balls.forEach(removeBallMesh);balls.length=0;
   if(cur){removeBallMesh(cur);cur=null}
   spark.clear();dust.clear();timers=[];$('card').hidden=true;$('bubble').hidden=true;$('toast').hidden=true;
-  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;
+  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];camOff.set(0,0,0);spot.visible=true;
 }
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
@@ -53,8 +75,9 @@ function makeRoom(p,parent){
   else if(p.prop==='vase'){b(1.7,.14,.9,0x8a5f3b,0,.98,0);[-.7,.7].forEach(x=>b(.12,.95,.7,0x704b2c,x,.48,0));
     const pts=[[.05,0],[.34,.08],[.42,.5],[.24,.95],[.17,1.2],[.28,1.36]].map(a=>new T.Vector2(a[0],a[1]));const v=new T.Mesh(new T.LatheGeometry(pts,14),new T.MeshBasicMaterial({color:0x2f6fd0,side:T.DoubleSide}));v.position.y=1.05;pg.add(v);tY=1.7;colors=[0x2f6fd0,0xffffff,0x8fb9f0,0x8a5f3b];word='THE VASE!'}
   else if(p.prop==='fish'){b(1.9,.8,.7,0x6f4e37,0,.4,0);const t=new T.Mesh(new T.BoxGeometry(1.75,1.05,.7),new T.MeshBasicMaterial({color:0x53bdf0,transparent:true,opacity:.72}));t.position.y=1.33;pg.add(t);b(.42,.24,.1,0xff8a1f,-.3,1.4,.37);b(.16,.26,.1,0xff8a1f,-.58,1.4,.37);b(.34,.2,.1,0xffc53a,.42,1.15,.37);tY=1.33;colors=[0x53bdf0,0xd6f3ff,0xff8a1f,0x6f4e37];word='SPLOOSH!'}
+  else if(p.prop==='cat'){b(1.4,.28,1.1,0xd9503f,0,.14,0);b(.24,1.6,.24,0xd8c39a,1.1,.8,0);b(.7,.12,.7,0xc9a77a,1.1,1.6,0);tY=.5;colors=[0xd9503f];word=''}
   else{b(1.9,.12,1,0xffffff,0,.98,0);[-.8,.8].forEach(x=>b(.12,.95,.8,0x8a5f3b,x,.48,0));const k=(r,h2,y,col)=>{const q=new T.Mesh(new T.CylinderGeometry(r,r,h2,18),bmat(col));q.position.y=y;pg.add(q)};k(.6,.34,1.22,0xff9fc0);k(.42,.3,1.54,0xfff2f6);k(.08,.26,1.82,0xd9503f);tY=1.5;colors=[0xff9fc0,0xfff2f6,0xd9503f,0x7a4a2e];word='THE CAKE!'}
-  p.room={floor,group:pg,target:new T.Vector3(p.x,floor+tY,-3.1),kind:p.prop,colors,word,hit:false};
+  p.room={floor,group:pg,target:new T.Vector3(p.x,floor+tY,-3.1),kind:p.prop,colors,word,hit:p.prop==='cat'}; /* the cat's room has nothing to break */
 }
 
 function buildHouse(L){
@@ -78,7 +101,7 @@ function buildHouse(L){
   [[-1.07],[1.07]].forEach(a=>box(.24,3.5,.38,0xfffaf0,a[0],1.75,.1,g));box(2.38,.24,.38,0xfffaf0,0,3.42,.1,g);
   const pivot=new T.Group();pivot.position.set(-.95,0,.16);g.add(pivot);box(1.9,3.28,.12,0x2f7e77,.95,1.64,0,pivot);box(1.3,.9,.03,0x276963,.95,2.45,.07,pivot,false);box(1.3,.9,.03,0x276963,.95,1.15,.07,pivot,false);const kn=new T.Mesh(new T.SphereGeometry(.1,10,8),mat(0xffc53a));kn.position.set(1.65,1.6,.12);pivot.add(kn);door=pivot;
   [-1,1].forEach(s=>[.7,1.5].forEach(k=>{const b=new T.Mesh(new T.IcosahedronGeometry(.9,1),mat(k<1?0x3f8f3e:0x4fa04a));b.position.set(s*(W+k*.9),.65,.9);b.castShadow=true;g.add(b)}));
-  for(let i=0;i<7;i++){const st=new T.Mesh(new T.CylinderGeometry(.55,.6,.05,9),mat(0xcdbb9b));st.position.set(Math.sin(i*1.5)*.22,.03,1.1+i*1.45);st.receiveShadow=true;g.add(st)}
+  if(!L.island&&!L.gwall)for(let i=0;i<7;i++){const st=new T.Mesh(new T.CylinderGeometry(.55,.6,.05,9),mat(0xcdbb9b));st.position.set(Math.sin(i*1.5)*.22,.03,1.1+i*1.45);st.receiveShadow=true;g.add(st)}
   const n=new T.Group();
   const body=box(1,1.25,.55,0x3f6fc2,0,1.5,0,n);
   box(.36,.9,.42,0x383f55,-.24,.45,0,n);box(.36,.9,.42,0x383f55,.24,.45,0,n);
@@ -90,15 +113,22 @@ function buildHouse(L){
   const arm=new T.Group();arm.position.set(.62,2,0);n.add(arm);box(.28,1,.3,0x3f6fc2,0,.45,0,arm);const fist=new T.Mesh(new T.SphereGeometry(.24,10,8),mat(0xf0bd93));fist.position.y=1.05;arm.add(fist);
   n.position.set(0,0,-.6);n.visible=false;g.add(n);n.userData.arm=arm;grump=n;
 }
+/* Each stand is its own group so rail windows can slide (p.x follows; p.vx is used by aim help). */
 function buildStand(L){
-  const g=group;panes.forEach(p=>{makeFrame(p,g,0xfffaf0);makePane(p,g);
-  [-1,1].forEach(s=>{box(.26,p.y-p.h/2,.26,0x8a5f3b,p.x+s*(p.w/2+.1),(p.y-p.h/2)/2,.1,g);box(.26,.14,1.8,0x704b2c,p.x+s*(p.w/2+.1),.07,.1,g)})});
+  panes.forEach(p=>{const sg=new T.Group();sg.position.x=p.x;group.add(sg);const x=p.x;p.x=0;makeFrame(p,sg,0xfffaf0);makePane(p,sg);p.x=x;
+    if(p.hang){const top=p.y+p.h/2+.2,gy=L.gantry.y-.17;[-1,1].forEach(s=>box(.05,gy-top,.05,0x3a3a44,s*p.w*.4,(gy+top)/2,.1,sg,false));box(.9,.3,.5,0x4a5466,0,gy-.1,.1,sg)}
+    else[-1,1].forEach(s=>{box(.26,p.y-p.h/2,.26,0x8a5f3b,s*(p.w/2+.1),(p.y-p.h/2)/2,.1,sg);box(.26,.14,1.8,0x704b2c,s*(p.w/2+.1),.07,.1,sg)});
+    if(!p.rail)return;const r=p.rail,ph=r.phase||0;p.x0=x;
+    if(!p.hang)[-.5,.5].forEach(z=>box(r.amp*2+p.w+1.6,.06,.1,0x8d8577,x,.03,.1+z,group,false));
+    const at=t=>{p.x=p.x0+r.amp*Math.sin(t*r.speed+ph);p.vx=r.amp*r.speed*Math.cos(t*r.speed+ph);sg.position.x=p.x};at(0);
+    movers.push(at)});
 }
 function loadLevel(i){
   clearLevel();sandbox=false;level=(i+LV.length)%LV.length;LVL=LV[level];
   group=new T.Group();scene.add(group);
   panes=LVL.panes.map(p=>Object.assign({},p));lt=0;wind=LVL.wind||0;
-  if(LVL.type==='house')buildHouse(LVL);else buildStand(LVL);
+  world.visible=!LVL.island;setNight(!!LVL.night);
+  if(LVL.type==='house')buildHouse(LVL);else if(LVL.type==='greenhouse')buildGreenhouse(LVL);else buildStand(LVL);
   buildMech(LVL);
   ballsLeft=LVL.balls;used=0;won=false;
   $('lvlNo').textContent=(level+1)+'/'+LV.length;$('lvlName').textContent=LVL.name;
@@ -108,7 +138,7 @@ function loadLevel(i){
 let sandbox=false;
 function loadSandbox(){
   clearLevel();sandbox=true;LVL={name:'Sandbox',type:'sandbox',balls:0,panes:[]};
-  group=new T.Group();scene.add(group);panes=[];
+  group=new T.Group();scene.add(group);panes=[];world.visible=true;setNight(false);
   ballsLeft=1e9;used=0;won=false;
   $('lvlNo').textContent='Dev';$('lvlName').textContent=LVL.name;
   drawBalls();spawnBall();updateHint();chips();

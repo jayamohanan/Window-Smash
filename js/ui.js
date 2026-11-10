@@ -27,5 +27,7 @@ buildSliders();
 layout();
 loadLevel(0);
 requestAnimationFrame(frame);
+/* Loading screen: fade it out once the first frames are drawn (shown at least ~0.8 s so it doesn't flash). */
+requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{const l=$('loader');if(!l)return;l.classList.add('done');setTimeout(()=>l.remove(),500)},Math.max(0,800-performance.now()))));
 window.__ws={get panes(){return panes},get level(){return level},get sandbox(){return sandbox},get won(){return won},get ballsLeft(){return ballsLeft},get cur(){return !!cur},get balls(){return balls},ballPx,scr:toScreen,S};
 
