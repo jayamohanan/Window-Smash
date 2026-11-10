@@ -7,7 +7,7 @@ function checkWin(){
   later(house?2.1:1.15,showCard);
 }
 function showCard(){
-  const n=panes.length,st=used<=n?3:used===n+1?2:1;
+  const n=panes.length,need=LVL.panes.reduce((k,p)=>k+1+(p.armor||0)+((p.hp||1)-1),0),st=used<=need?3:used===need+1?2:1;
   $('cardTitle').textContent=st===3?'Perfect smash!':'Smashed!';
   $('stars').innerHTML='<b>'+'★'.repeat(st)+'</b>'+'★'.repeat(3-st);
   $('cardText').textContent=n+(n>1?' windows':' window')+' with '+used+(used>1?' balls':' ball');
@@ -25,32 +25,41 @@ function checkFail(){
 
 
 /* ---------- ball step ---------- */
-function wallHit(b,kind){
+function wallHit(b,kind){ /* kind: 'thud' | 'clang' | 'soft' (no sound or word; the caller makes its own) */
   b.p.z=ZF+R*.5;b.v.z*=-.42;b.v.x*=.55;b.v.y*=.55;b.a.x=0;b.state='bounce';b.age=Math.min(b.age,.3);
   for(let i=0;i<20;i++)dust.emit(b.p.x,b.p.y,.3,rnd(-2.2,2.2),rnd(-1,2.4),rnd(0,2.2),rnd(.25,.55),[.92,.76,.56],2);
+  if(kind==='soft')return;
   addShake(.16);if(kind==='clang')sfx.clang();else sfx.thud();
   if(Math.random()<.5)pop(kind==='clang'?'CLANG':'BONK',b.p.x,b.p.y+.5,0,true);
 }
 function crossPlane(b){
   if(b.live){b.live=false;b.a.set(0,-S.gravity,0)}
   const x=b.p.x,y=b.p.y;
-  for(const p of panes){if(Math.abs(x-p.x)<=p.w/2+.06&&Math.abs(y-p.y)<=p.h/2+.06){
-    if(!p.broken){smash(p,b);return}
+  for(const p of panes){if(p.sky)continue;if(Math.abs(x-p.x)<=p.w/2+.06&&Math.abs(y-p.y)<=p.h/2+.06){
+    if(!p.broken){
+      if(p.shutF>0&&y>p.shutY-R*.3){wallHit(b,'clang');return}
+      if(p.armor>0){breakBoards(p,b);wallHit(b,'soft');return}
+      if(p.hp>1){crackPane(p,b);wallHit(b,'soft');return}
+      smash(p,b);return}
     if(p.room){b.state='dead';b.a.set(0,-G,0);b.floor=p.room.floor+R;b.pane=p;b.age=0}else b.state='passed';
     return}}
   if(LVL.type==='sandbox')return;
-  if(LVL.type==='stand'){const p=panes[0],f=.3;
-    if(Math.abs(x-p.x)<=p.w/2+f&&Math.abs(y-p.y)<=p.h/2+f){wallHit(b,'clang');return}
-    if(Math.abs(Math.abs(x-p.x)-(p.w/2+.1))<.26&&y<p.y){wallHit(b,'clang');return}
+  if(LVL.type==='stand'){const f=.3;for(const p of panes){
+    if(Math.abs(x-p.x)<=p.w/2+f&&Math.abs(y-p.y)<=p.h/2+f){wallHit(b,'thud');return}
+    if(Math.abs(Math.abs(x-p.x)-(p.w/2+.1))<.26&&y<p.y){wallHit(b,'thud');return}}
     return}
   const W=LVL.W,H=LVL.H,Gb=LVL.G,top=Math.abs(x)<=W?H+Gb*(1-Math.abs(x)/W):-1;
   if(Math.abs(x)<=W&&y<=top+.1)wallHit(b,'thud');
 }
 function stepBall(b,dt){
   b.age+=dt;if(b.live&&b.state==='fly')flyLive(b,dt);const sub=4,h=dt/sub;
+  /* wind pushes any ball that is in the air outside the house */
+  if(wind&&!b.ghost&&b.p.y>R+.05&&(b.state==='fly'||b.state==='passed'||b.state==='bounce'))b.v.x+=wind*dt;
   for(let i=0;i<sub;i++){
     const z0=b.p.z;b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
-    if((b.state==='fly'||b.state==='ground')&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state==='fly'||b.state==='ground'){b.state='passed'}}
+    const was=b.state;
+    if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
+    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
     if(b.p.y<fl){b.p.y=fl;
@@ -82,6 +91,7 @@ function frame(now){
 }
 function tick(dt,real){
   for(let i=timers.length-1;i>=0;i--){timers[i].t-=real;if(timers[i].t<=0){const f=timers[i].f;timers.splice(i,1);f()}}
+  mechTick(dt);
   if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
   for(let i=balls.length-1;i>=0;i--)if(!stepBall(balls[i],dt))balls.splice(i,1);

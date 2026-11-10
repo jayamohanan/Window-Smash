@@ -6,6 +6,7 @@ function chips(){
   $('sandbox').classList.toggle('on',sandbox);
   $('sound').textContent=S.sound?'Sound on':'Sound off';
 }
+$('lvlRow').innerHTML=LV.map((L,i)=>'<button class="chip" data-lvl="'+i+'" title="'+L.name+'">'+(i+1)+'</button>').join('');
 function buildSliders(){
   const vis=SL.filter(a=>!a[5]||a[5]===(S.mode==='live'?'live':'old'));
   $('sliders').innerHTML=vis.map(a=>'<label for="s_'+a[0]+'"><span>'+a[1]+'</span><output id="o_'+a[0]+'"></output><input id="s_'+a[0]+'" type="range" min="'+a[2]+'" max="'+a[3]+'" step="'+a[4]+'"></label>').join('');

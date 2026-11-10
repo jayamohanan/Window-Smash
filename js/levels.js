@@ -1,9 +1,20 @@
 'use strict';
 /* ---------- levels ---------- */
+/* Pane fields: x,y,w,h on the wall plane; prop+wall = room behind (house only);
+   shutter:{phase} = roller shutter on a loop; armor:1 = wooden boards (one kick each); hp:2 = wired glass (cracks first);
+   sky:true = skylight in the porch roof (needs porch:true).
+   Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial. */
 const LV=[
- {name:'Test Pane',type:'stand',balls:3,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
- {name:'Two Windows',type:'house',H:5.2,G:2.3,W:7,balls:4,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
- {name:'Four Windows',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]}
+ {name:'First Kick',type:'stand',balls:3,tut:true,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
+ {name:'Three Stands',type:'stand',balls:5,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
+ {name:'First House',type:'house',H:5.2,G:2.3,W:7,balls:4,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
+ {name:'Four Windows',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]},
+ {name:'Sliding Board',type:'house',H:5.2,G:2.3,W:7,balls:5,board:{z:2.4,w:6,amp:4.2,speed:1.25},panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
+ {name:'Shutters',type:'house',H:5.2,G:2.3,W:7,balls:5,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,shutter:{phase:0}},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,shutter:{phase:.5}}]},
+ {name:'Boarded Up',type:'house',H:5.2,G:2.3,W:7,balls:6,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,armor:1},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,hp:2}]},
+ {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:6,porch:true,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
+   panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{sky:true,w:2.2,h:1.8}]},
+ {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:7,wind:7,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]}
 ];
 
 let level=0,LVL=null,group=null,panes=[],ballsLeft=0,used=0,won=false,cur=null,D=13,hintDone=false,door=null,grump=null,grumpT=-1;
@@ -22,7 +33,7 @@ function clearLevel(){
   balls.forEach(removeBallMesh);balls.length=0;
   if(cur){removeBallMesh(cur);cur=null}
   spark.clear();dust.clear();timers=[];$('card').hidden=true;$('bubble').hidden=true;$('toast').hidden=true;
-  grump=null;door=null;grumpT=-1;
+  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;
 }
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
@@ -50,19 +61,19 @@ function buildHouse(L){
   const g=group,W=L.W,H=L.H,G=L.G;
   const sh=new T.Shape();sh.moveTo(-W,0);sh.lineTo(W,0);sh.lineTo(W,H);sh.lineTo(0,H+G);sh.lineTo(-W,H);sh.closePath();
   const hole=(x0,y0,x1,y1)=>{const q=new T.Path();q.moveTo(x0,y0);q.lineTo(x0,y1);q.lineTo(x1,y1);q.lineTo(x1,y0);q.closePath();sh.holes.push(q)};
-  panes.forEach(p=>hole(p.x-p.w/2,p.y-p.h/2,p.x+p.w/2,p.y+p.h/2));
+  panes.forEach(p=>!p.sky&&hole(p.x-p.w/2,p.y-p.h/2,p.x+p.w/2,p.y+p.h/2));
   hole(-.95,0,.95,3.3);
   const tex=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#f2bd86';c.fillRect(0,0,w,h);c.fillStyle='#d99d62';for(let i=0;i<4;i++)c.fillRect(0,i*h/4,w,3);c.fillStyle='rgba(255,255,255,.08)';for(let i=0;i<4;i++)c.fillRect(0,i*h/4+6,w,10)});
   tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(.42,.42);
   const wg=new T.ExtrudeGeometry(sh,{depth:.38,bevelEnabled:false});
   const wall=new T.Mesh(wg,[new T.MeshLambertMaterial({map:tex}),mat(0xd99d62)]);wall.position.z=-.22;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);
-  panes.forEach(p=>{makeRoom(p,g);makeFrame(p,g,0xfffaf0);makePane(p,g);
+  panes.filter(p=>!p.sky).forEach(p=>{makeRoom(p,g);makeFrame(p,g,0xfffaf0);makePane(p,g);
     box(p.w+.6,.22,.55,0x8a5f3b,p.x,p.y-p.h/2-.36,.32,g);
     for(let i=0;i<8;i++){const f=new T.Mesh(new T.IcosahedronGeometry(.17,0),mat(i%3?0xf35f7d:0xffd34d));f.position.set(p.x-p.w/2+.15+i*(p.w-.3)/7,p.y-p.h/2-.16,.34);g.add(f)}});
   const slope=Math.atan2(G,W),len=Math.hypot(W+.9,G*(W+.9)/W)+.3;
-  [-1,1].forEach(s=>{const r=box(len,.3,8.2,0xc6473a,s*(W+.9)/2,H+G*(1-(W+.9)/(2*W))+.14,-3,g);r.rotation.z=-s*slope});
-  box(1.2,2.6,1.2,0xa8513f,4,H+1.6,-3,g);box(1.45,.28,1.45,0x7c3a2d,4,H+2.9,-3,g);
-  [-1,1].forEach(s=>box(.2,H,7,0xd99d62,s*W,H/2,-3.6,g));
+  [-1,1].forEach(s=>{const r=box(len,.3,8.2,0xc6473a,s*(W+.9)/2,H+G*(1-(W+.9)/(2*W))+.14,-3,g);r.rotation.z=-s*slope;addOb(r,'roof')});
+  addOb(box(1.2,2.6,1.2,0xa8513f,4,H+1.6,-3,g),'wall');box(1.45,.28,1.45,0x7c3a2d,4,H+2.9,-3,g);
+  [-1,1].forEach(s=>addOb(box(.2,H,7,0xd99d62,s*W,H/2,-3.6,g),'wall'));
   const dark=new T.Mesh(new T.PlaneGeometry(1.9,3.3),bmat(0x2b2230));dark.position.set(0,1.65,-.16);g.add(dark);
   [[-1.07],[1.07]].forEach(a=>box(.24,3.5,.38,0xfffaf0,a[0],1.75,.1,g));box(2.38,.24,.38,0xfffaf0,0,3.42,.1,g);
   const pivot=new T.Group();pivot.position.set(-.95,0,.16);g.add(pivot);box(1.9,3.28,.12,0x2f7e77,.95,1.64,0,pivot);box(1.3,.9,.03,0x276963,.95,2.45,.07,pivot,false);box(1.3,.9,.03,0x276963,.95,1.15,.07,pivot,false);const kn=new T.Mesh(new T.SphereGeometry(.1,10,8),mat(0xffc53a));kn.position.set(1.65,1.6,.12);pivot.add(kn);door=pivot;
@@ -80,14 +91,15 @@ function buildHouse(L){
   n.position.set(0,0,-.6);n.visible=false;g.add(n);n.userData.arm=arm;grump=n;
 }
 function buildStand(L){
-  const g=group,p=panes[0];makeFrame(p,g,0xfffaf0);makePane(p,g);
-  [-1,1].forEach(s=>{box(.26,p.y-p.h/2,.26,0x8a5f3b,p.x+s*(p.w/2+.1),(p.y-p.h/2)/2,.1,g);box(.26,.14,1.8,0x704b2c,p.x+s*(p.w/2+.1),.07,.1,g)});
+  const g=group;panes.forEach(p=>{makeFrame(p,g,0xfffaf0);makePane(p,g);
+  [-1,1].forEach(s=>{box(.26,p.y-p.h/2,.26,0x8a5f3b,p.x+s*(p.w/2+.1),(p.y-p.h/2)/2,.1,g);box(.26,.14,1.8,0x704b2c,p.x+s*(p.w/2+.1),.07,.1,g)})});
 }
 function loadLevel(i){
   clearLevel();sandbox=false;level=(i+LV.length)%LV.length;LVL=LV[level];
   group=new T.Group();scene.add(group);
-  panes=LVL.panes.map(p=>Object.assign({},p));
+  panes=LVL.panes.map(p=>Object.assign({},p));lt=0;wind=LVL.wind||0;
   if(LVL.type==='house')buildHouse(LVL);else buildStand(LVL);
+  buildMech(LVL);
   ballsLeft=LVL.balls;used=0;won=false;
   $('lvlNo').textContent=(level+1)+'/'+LV.length;$('lvlName').textContent=LVL.name;
   drawBalls();spawnBall();updateHint();chips();

@@ -8,7 +8,7 @@ function shotFrom(d){
   if(S.mode==='aim'){ndc.set(e.x/W_*2-1,1-e.y/H_*2);ray.setFromCamera(ndc,camera);if(!ray.ray.intersectPlane(plane,hitV))hitV.set(0,3,ZF);t.copy(hitV)}
   else{const u=Math.min(W_,H_);t.set((e.x-a.x)/u*26,.4+(a.y-e.y)/u*15,ZF)}
   t.x=clamp(t.x,-16,16);t.y=clamp(t.y,.35,13);t.z=ZF;
-  let best=null,bd=1e9;panes.forEach(p=>{if(p.broken)return;const dd=Math.hypot(t.x-p.x,t.y-p.y),r=Math.hypot(p.w,p.h)/2+1.4;if(dd<r&&dd<bd){bd=dd;best=p}});
+  let best=null,bd=1e9;panes.forEach(p=>{if(p.broken||p.sky)return;const dd=Math.hypot(t.x-p.x,t.y-p.y),r=Math.hypot(p.w,p.h)/2+1.4;if(dd<r&&dd<bd){bd=dd;best=p}});
   if(best&&S.snap>0){t.x=lerp(t.x,best.x,S.snap);t.y=lerp(t.y,best.y,S.snap)}
   let bend=0;const dx=e.x-a.x,dy=e.y-a.y,len=Math.hypot(dx,dy);
   if(len>40){let mx=0;d.pts.forEach(q=>{const c=(dx*(q.y-a.y)-dy*(q.x-a.x))/len;if(Math.abs(c)>Math.abs(mx))mx=c});const r=mx/len;if(Math.abs(r)>.07)bend=clamp(r,-.5,.5)}
@@ -89,8 +89,8 @@ function flyLive(b,dt){
   const v=b.v,sp=v.length(),c=.004,g=S.gravity;
   if(S.snap>0&&b.p.z<D*.6&&v.z<-.5&&b.p.y>R+.02){
     const tr=(b.p.z-ZF)/-v.z,py=b.p.y+b.vn*tr-.5*g*tr*tr,px=b.p.x+v.x*tr;
-    if(py>R+.2){let best=null,bd=1e9;panes.forEach(p=>{if(p.broken)return;const q=Math.hypot(px-p.x,py-p.y);if(q<Math.hypot(p.w,p.h)/2+1.3&&q<bd){bd=q;best=p}});
-      if(best){const k=1-Math.exp(-S.snap*7*dt),t=Math.max(tr,.1);v.x+=(best.x-px)*k/t;b.vn+=(best.y-py)*k/t}}}
+    if(py>R+.2){let best=null,bd=1e9;panes.forEach(p=>{if(p.broken||p.sky)return;const q=Math.hypot(px-p.x,py-p.y);if(q<Math.hypot(p.w,p.h)/2+1.3&&q<bd){bd=q;best=p}});
+      if(best){const k=1-Math.exp(-S.snap*7*dt),t=Math.max(tr,.1);if(!wind)v.x+=(best.x-px)*k/t;b.vn+=(best.y-py)*k/t}}}
   const yMax=ceilingY(b),gap=yMax===null?1e9:yMax-b.p.y;
   v.y=Math.min(b.vn,gap>0?Math.sqrt(2*g*gap):0);
   /* At the ceiling, drop the leftover climb so the ball peaks there and falls at once (no flat hover).

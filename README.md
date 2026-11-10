@@ -21,6 +21,7 @@ Kick a football through the neighbours' windows. Plain HTML/CSS/JS with three.js
 | `js/fx.js` | Particles, shatter, juice (freeze, slow-mo, shake, pops) |
 | `js/audio.js` | Web Audio sfx |
 | `js/levels.js` | `LV` level data, `buildHouse`, `buildStand`, `makeRoom`, `loadLevel` |
+| `js/mech.js` | Level mechanics: solid obstacles (ball bounces off boxes), movers, sliding board, roller shutters, wooden boards, wired glass, hedges, porch skylight, wind |
 | `js/input.js` | Live swipe (default) plus the old aim/shape controls (hidden) |
 | `js/game.js` | Win/fail, ball physics, main loop |
 | `js/ui.js` | Tuning panel, buttons, keyboard, startup, `window.__ws` debug hook |

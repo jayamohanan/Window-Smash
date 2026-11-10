@@ -55,7 +55,7 @@ function layout(){
 const proj=new T.Vector3();
 function toScreen(x,y,z){proj.set(x,y,z).project(camera);return[(proj.x+1)/2*W_,(1-proj.y)/2*H_]}
 function updateHint(){
-  if(!LVL)return;const show=!hintDone&&panes.length>0;$('hint').hidden=!show;$('hintText').hidden=!show;if(!show)return;
+  if(!LVL)return;const show=!hintDone&&!sandbox&&!!LVL.tut&&panes.length>0;$('hint').hidden=!show;if(!show)return;
   const a=toScreen(0,.3,D),b=toScreen(panes[0].x,panes[0].y,0),h=$('hint');
   h.style.setProperty('--x0',a[0]+'px');h.style.setProperty('--y0',(a[1]-16)+'px');h.style.setProperty('--x1',b[0]+'px');h.style.setProperty('--y1',b[1]+'px');
 }

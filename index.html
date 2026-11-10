@@ -12,7 +12,7 @@
   <canvas id="gl"></canvas>
   <canvas id="fx"></canvas>
   <div class="hud">
-    <div class="tag"><small id="lvlNo">1/3</small><span id="lvlName">Test Pane</span></div>
+    <div class="tag"><small id="lvlNo">1/9</small><span id="lvlName">First Kick</span></div>
     <div id="balls"></div>
     <div class="spacer"></div>
     <button id="gear" aria-label="Tuning">⚙</button>
@@ -24,12 +24,8 @@
       <button class="chip" data-mode="shape">Swipe shape</button>
     </div>
     <div id="sliders" style="display:grid;gap:7px"></div>
-    <div class="row">
-      <button class="chip" data-lvl="0">Level 1</button>
-      <button class="chip" data-lvl="1">Level 2</button>
-      <button class="chip" data-lvl="2">Level 3</button>
-      <button class="chip" id="sandbox">Sandbox</button>
-    </div>
+    <div class="row" id="lvlRow"></div>
+    <div class="row"><button class="chip" id="sandbox">Sandbox</button></div>
     <div class="row">
       <button class="chip" id="sound">Sound on</button>
       <button class="chip" id="copy">Copy values</button>
@@ -39,8 +35,7 @@
   </div>
   <div id="bubble" hidden>HEY!!</div>
   <div id="toast" hidden></div>
-  <div id="hint" hidden></div>
-  <div id="hintText" hidden>Swipe up from the ball</div>
+  <div id="hint" hidden><svg viewBox="0 0 60 74" width="60" height="74" aria-hidden="true"><g fill="#fff" stroke="#23304a" stroke-width="3.5" stroke-linejoin="round"><rect x="22" y="2" width="13" height="40" rx="6.5"/><path d="M14 37q0-7 7-7h22q9 0 9 9v14q0 17-19 17q-19 0-19-17z"/><ellipse cx="14" cy="45" rx="6" ry="11" transform="rotate(-28 14 45)"/></g><path d="M36 31v7M44 31v7" fill="none" stroke="#23304a" stroke-width="3" stroke-linecap="round"/></svg></div>
   <div id="card" hidden>
     <h2 id="cardTitle">Smashed!</h2>
     <div id="stars"></div>
@@ -56,6 +51,7 @@
 <script src="js/fx.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/levels.js"></script>
+<script src="js/mech.js"></script>
 <script src="js/input.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>

@@ -19,6 +19,9 @@ const sfx={
     else if(k==='fish'){noise(t,'highpass',2600,.7,.65,.08);noise(t+.02,'lowpass',1300,1,.85,.55);for(let i=0;i<7;i++)tone(t+.1+i*.05,'sine',rnd(400,900),rnd(900,1500),.13,.06)}
     else if(k==='cake'){noise(t,'lowpass',500,1,.9,.2);tone(t,'sine',200,60,.5,.22)}
     else{noise(t,'bandpass',2400,1.3,.8,.12);for(let i=0;i<10;i++)tone(t+.02+i*.03,'triangle',rnd(1200,3200),rnd(1000,2600),.16,.07)}},
+  rustle(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',2600,.6,.55,.26);noise(t+.04,'highpass',4200,.8,.3,.18);noise(t,'lowpass',400,.8,.4,.08)},
+  crack(){if(!can())return;const t=ac.currentTime;noise(t,'highpass',3000,.8,.9,.07);tone(t,'triangle',2400,1800,.3,.09);tone(t,'sine',300,90,.45,.1);for(let i=0;i<6;i++)tone(t+.02+i*.02,'triangle',rnd(3000,6000),rnd(2500,5000),.08,.04)},
+  wood(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',900,1.2,1,.13);tone(t,'triangle',220,90,.6,.14);for(let i=0;i<5;i++)noise(t+.03+i*.03,'bandpass',rnd(1200,2400),2,.35,.05)},
   hey(){if(!can())return;const t=ac.currentTime,o=ac.createOscillator(),b=ac.createBiquadFilter(),g=ac.createGain();o.type='sawtooth';o.frequency.setValueAtTime(190,t);o.frequency.linearRampToValueAtTime(320,t+.09);o.frequency.exponentialRampToValueAtTime(150,t+.42);b.type='bandpass';b.frequency.setValueAtTime(600,t);b.frequency.linearRampToValueAtTime(1500,t+.12);b.Q.value=3;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.8,t+.04);g.gain.exponentialRampToValueAtTime(.001,t+.45);o.connect(b);b.connect(g);g.connect(master);o.start(t);o.stop(t+.47)}
 };
 
