@@ -1,0 +1,7 @@
+# macOS Finder files
+.DS_Store
+._*
+
+# Build output (regenerate with: sh build.sh)
+build/
+window-smash-poki.zip

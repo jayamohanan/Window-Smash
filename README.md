@@ -26,3 +26,15 @@ Kick a football through the neighbours' windows. Plain HTML/CSS/JS with three.js
 | `js/ui.js` | Tuning panel, buttons, keyboard, startup, `window.__ws` debug hook |
 
 Scripts are plain (non-module) and share globals, so the load order in `index.html` matters. Press `M` to cycle control modes. The tuning panel (⚙) has a **Sandbox** button: an empty yard with unlimited balls for testing kick feel (`R` reloads it).
+
+## Build
+
+```
+sh build.sh          # build/ + window-smash-poki.zip
+sh build.sh --no-zip # build/ only
+```
+
+`build.sh` runs `tools/build.js`, which needs no dependencies: Node 16.7+, plus the system `zip` for the archive (skipped with a warning if `zip` is missing). The build bundles the game scripts into `build/js/game.js` in the order of `index.html`, copies three.js, the CSS and fonts, and fails if any file outside three.js references an external URL. Add new game scripts as `<script>` tags in `index.html`, and the build picks them up automatically.
+
+- **Poki:** upload `window-smash-poki.zip` (`index.html` is at its root).
+- **Cloudflare Pages:** build command `sh build.sh`, build output directory `build`, root directory empty.
