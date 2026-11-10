@@ -68,18 +68,19 @@ function kickLive(bp,pt,d){
   let dx=sv.x,dy=sv.y;if(spd<.2||dy>-1){dx=pt.x-bp.x;dy=pt.y-bp.y}
   const rowY=toScreen(0,2.8,ZF)[1],k=(bp.y-rowY)/Math.max(1,-dy);
   let xw=0;ndc.set((bp.x+dx*k)/W_*2-1,1-rowY/H_*2);ray.setFromCamera(ndc,camera);if(ray.ray.intersectPlane(plane,hitV))xw=clamp(hitV.x,-16,16);
-  b.P=P;b.lift=0;b.vn=P*S.loft;b.topY=d.top;b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
+  b.P=P;b.lift=0;b.vn=P*S.loft;b.baseY=bp.y;b.topY=Math.min(d.top,pt.y+Math.min(0,sv.y)*.08);b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
   balls.push(b);d.steer=b;
   ballsLeft--;used++;drawBalls();sfx.kick();
   for(let i=0;i<14;i++)dust.emit(rnd(-.3,.3),.1,D+rnd(-.2,.2),rnd(-1.8,1.8),rnd(.6,2.2),rnd(-.5,1.5),rnd(.25,.5),[.72,.6,.42],3);
   addShake(.1);if(!hintDone){hintDone=true;updateHint()}
 }
-/* Screen-space ceiling: the ball should not show above the highest point the finger reached.
-   Returns the world height at the ball's distance that projects to that screen height. */
+/* Screen-space ceiling: the ball may rise S.reach times as high as the finger went, measured on screen
+   up from the ball's resting spot (one fixed scale for every level). A fast upward flick carries the
+   finger's top on by ~0.08 s at kick time. Returns the world height at the ball's distance that projects there. */
 const ceilPlane=new T.Plane(new T.Vector3(0,0,1),0);
 function ceilingY(b){
   const sx=toScreen(b.p.x,b.p.y,b.p.z)[0];ceilPlane.constant=-b.p.z;
-  ndc.set(sx/W_*2-1,1-b.topY/H_*2);ray.setFromCamera(ndc,camera);
+  const ty=b.baseY-(b.baseY-b.topY)*S.reach;ndc.set(sx/W_*2-1,1-ty/H_*2);ray.setFromCamera(ndc,camera);
   return ray.ray.intersectPlane(ceilPlane,hitV)?hitV.y:null;
 }
 /* Per-frame forces for a live ball. b.vn is the free (uncapped) vertical speed under gravity;
