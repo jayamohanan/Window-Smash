@@ -3,11 +3,11 @@
 /* Pane fields: x,y,w,h on the wall plane; prop+wall = room behind (house only);
    shutter:{phase} = roller shutter on a loop; armor:1 = wooden boards (one kick each); hp:2 = wired glass (cracks first);
    sky:true = skylight in the porch roof (needs porch:true).
-   safe:true = protected window (a cat; breaking it fails); rail:{amp,speed,phase} = stand window sliding on a rail; hang:true = hangs from the gantry;
+   rail:{amp,speed,phase} = stand window sliding on a rail; hang:true = hangs from the gantry;
    back/roof:true = greenhouse back wall / roof glass.
    Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial,
    mill = windmill on the house front, gantry = overhead beam, island = island hop, bonus = no fail (greenhouse),
-   switch = bullseye that unlocks shutter:{lock:true} windows, pads = bounce pads, gwall = garden wall, night = lighthouse night, towers = mansion towers. */
+   switch = bullseye that unlocks shutter:{lock:true} windows, cat = a cat on one window's sill blocks it and hops between windows, pads = bounce pads, gwall = garden wall, night = lighthouse night (memory level), layout = function returning fresh panes on each attempt, towers = mansion towers. */
 const GX=[-4.5,-1.5,1.5,4.5];
 const ghPanes=()=>[...GX.map(x=>({x,y:1.7,w:2.8,h:2.2})),...GX.map(x=>({x,y:4,w:2.8,h:2.2})),...GX.map(x=>({x,y:2.9,w:2.8,h:4.4,back:true})),...GX.map(x=>({x,w:2.8,h:2.3,roof:true}))];
 const two=()=>[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}];
@@ -26,21 +26,22 @@ const LV=[
  {name:'Bonus: Greenhouse',type:'greenhouse',bonus:true,balls:12,panes:ghPanes()},
  {name:'Windmill',type:'house',H:5.2,G:2.3,W:7,balls:5,mill:{x:0,y:4.4,z:1.6,len:4.2,speed:.9},panes:[{x:-3.4,y:2.8,w:2.5,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.4,y:2.8,w:2.5,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Rail Riders',type:'stand',balls:5,gantry:{x:8,y:7.2},panes:[{x:0,y:2.4,w:2.5,h:2.1,rail:{amp:4.8,speed:.95}},{x:0,y:5.3,w:2.3,h:1.9,hang:true,rail:{amp:4.8,speed:1.35,phase:Math.PI}}]},
- {name:'Mind the Cat',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},
-   {x:-4.6,y:6.1,w:2.2,h:2.1,prop:'vase',wall:0xe3d6f2},{x:0,y:6.1,w:2.2,h:2.1,prop:'cat',wall:0xffe6b0,safe:true},{x:4.6,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xd9efc6}]},
+ {name:'Mind the Cat',type:'house',H:8.2,G:2.2,W:7,balls:7,cat:true,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},
+   {x:-4.6,y:6.1,w:2.2,h:2.1,prop:'vase',wall:0xe3d6f2},{x:0,y:6.1,w:2.2,h:2.1,prop:'cake',wall:0xffe6b0},{x:4.6,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xd9efc6}]},
  {name:'Island Hop',type:'house',H:5.2,G:2.3,W:7,balls:6,island:true,panes:two()},
  {name:'Stormy Mill',type:'house',H:8.2,G:2.2,W:7,balls:8,wind:-6,mill:{x:0,y:4.6,z:1.6,len:4.5,speed:1.1},panes:four()},
  {name:'Bullseye',type:'house',H:5.2,G:2.3,W:7,balls:5,switch:{x:0,y:6.1,z:.3},panes:two().map(p=>Object.assign(p,{shutter:{lock:true}}))},
  {name:'Bounce Pads',type:'house',H:8.2,G:2.2,W:7,balls:7,gwall:{z:3,h:3.2},pads:[{x:-3.9,z:6.8},{x:3.9,z:6.8}],panes:four()},
- {name:'Lighthouse Night',type:'house',H:8.2,G:2.2,W:7,balls:7,night:true,panes:four()},
+ {name:'Lighthouse Night',type:'house',H:8.2,G:2.2,W:7,balls:7,night:true,layout:()=>nightLayout(),panes:four()},
  {name:'Shielded Isle',type:'house',H:5.2,G:2.3,W:7,balls:8,island:true,panes:two().map((p,i)=>Object.assign(p,i?{hp:2}:{armor:1}))},
- {name:'Boss Mansion',type:'house',H:8.2,G:2.4,W:8.5,balls:10,towers:true,board:{z:2.6,w:4,amp:5.6,speed:1.1},panes:[
+ {name:'Boss Mansion',type:'house',H:8.2,G:2.4,W:8.5,balls:11,towers:true,cat:true,board:{z:2.6,w:4,amp:5.6,speed:1.1},panes:[
    {x:-5.4,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:5.4,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8,hp:2},
-   {x:-5.4,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2,shutter:{phase:0}},{x:0,y:6.1,w:2.2,h:2.1,prop:'cat',wall:0xffe6b0,safe:true},{x:5.4,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6,armor:1}]}
+   {x:-5.4,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2,shutter:{phase:0}},{x:0,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xffe6b0},{x:5.4,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6,armor:1}]}
 ];
 
 let level=0,LVL=null,group=null,panes=[],ballsLeft=0,used=0,won=false,cur=null,D=13,hintDone=false,door=null,grump=null,grumpT=-1;
-const balls=[],shards=[],debris=[];
+const balls=[],shards=[],debris=[],returned=[];
+let inBalls=0; /* balls that went into the house; the owner rolls them back out after the win */
 let timers=[];
 const later=(s,f)=>timers.push({t:s,f});
 
@@ -55,7 +56,8 @@ function clearLevel(){
   balls.forEach(removeBallMesh);balls.length=0;
   if(cur){removeBallMesh(cur);cur=null}
   spark.clear();dust.clear();timers=[];$('card').hidden=true;$('bubble').hidden=true;$('toast').hidden=true;
-  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];camOff.set(0,0,0);spot.visible=true;
+  returned.forEach(r=>scene.remove(r.m));returned.length=0;inBalls=0;
+  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];catS=null;camOff.set(0,0,0);spot.visible=true;
 }
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
@@ -75,9 +77,8 @@ function makeRoom(p,parent){
   else if(p.prop==='vase'){b(1.7,.14,.9,0x8a5f3b,0,.98,0);[-.7,.7].forEach(x=>b(.12,.95,.7,0x704b2c,x,.48,0));
     const pts=[[.05,0],[.34,.08],[.42,.5],[.24,.95],[.17,1.2],[.28,1.36]].map(a=>new T.Vector2(a[0],a[1]));const v=new T.Mesh(new T.LatheGeometry(pts,14),new T.MeshBasicMaterial({color:0x2f6fd0,side:T.DoubleSide}));v.position.y=1.05;pg.add(v);tY=1.7;colors=[0x2f6fd0,0xffffff,0x8fb9f0,0x8a5f3b];word='THE VASE!'}
   else if(p.prop==='fish'){b(1.9,.8,.7,0x6f4e37,0,.4,0);const t=new T.Mesh(new T.BoxGeometry(1.75,1.05,.7),new T.MeshBasicMaterial({color:0x53bdf0,transparent:true,opacity:.72}));t.position.y=1.33;pg.add(t);b(.42,.24,.1,0xff8a1f,-.3,1.4,.37);b(.16,.26,.1,0xff8a1f,-.58,1.4,.37);b(.34,.2,.1,0xffc53a,.42,1.15,.37);tY=1.33;colors=[0x53bdf0,0xd6f3ff,0xff8a1f,0x6f4e37];word='SPLOOSH!'}
-  else if(p.prop==='cat'){b(1.4,.28,1.1,0xd9503f,0,.14,0);b(.24,1.6,.24,0xd8c39a,1.1,.8,0);b(.7,.12,.7,0xc9a77a,1.1,1.6,0);tY=.5;colors=[0xd9503f];word=''}
   else{b(1.9,.12,1,0xffffff,0,.98,0);[-.8,.8].forEach(x=>b(.12,.95,.8,0x8a5f3b,x,.48,0));const k=(r,h2,y,col)=>{const q=new T.Mesh(new T.CylinderGeometry(r,r,h2,18),bmat(col));q.position.y=y;pg.add(q)};k(.6,.34,1.22,0xff9fc0);k(.42,.3,1.54,0xfff2f6);k(.08,.26,1.82,0xd9503f);tY=1.5;colors=[0xff9fc0,0xfff2f6,0xd9503f,0x7a4a2e];word='THE CAKE!'}
-  p.room={floor,group:pg,target:new T.Vector3(p.x,floor+tY,-3.1),kind:p.prop,colors,word,hit:p.prop==='cat'}; /* the cat's room has nothing to break */
+  p.room={floor,group:pg,target:new T.Vector3(p.x,floor+tY,-3.1),kind:p.prop,colors,word,hit:false};
 }
 
 function buildHouse(L){
@@ -89,7 +90,7 @@ function buildHouse(L){
   const tex=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#f2bd86';c.fillRect(0,0,w,h);c.fillStyle='#d99d62';for(let i=0;i<4;i++)c.fillRect(0,i*h/4,w,3);c.fillStyle='rgba(255,255,255,.08)';for(let i=0;i<4;i++)c.fillRect(0,i*h/4+6,w,10)});
   tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(.42,.42);
   const wg=new T.ExtrudeGeometry(sh,{depth:.38,bevelEnabled:false});
-  const wall=new T.Mesh(wg,[new T.MeshLambertMaterial({map:tex}),mat(0xd99d62)]);wall.position.z=-.22;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);
+  const wall=new T.Mesh(wg,[new T.MeshLambertMaterial({map:tex}),mat(0xd99d62)]);wall.position.z=-.22;wall.castShadow=true;wall.receiveShadow=true;g.add(wall);g.userData.wallTex=tex;g.userData.wall=wall;
   panes.filter(p=>!p.sky).forEach(p=>{makeRoom(p,g);makeFrame(p,g,0xfffaf0);makePane(p,g);
     box(p.w+.6,.22,.55,0x8a5f3b,p.x,p.y-p.h/2-.36,.32,g);
     for(let i=0;i<8;i++){const f=new T.Mesh(new T.IcosahedronGeometry(.17,0),mat(i%3?0xf35f7d:0xffd34d));f.position.set(p.x-p.w/2+.15+i*(p.w-.3)/7,p.y-p.h/2-.16,.34);g.add(f)}});
@@ -126,7 +127,7 @@ function buildStand(L){
 function loadLevel(i){
   clearLevel();sandbox=false;level=(i+LV.length)%LV.length;LVL=LV[level];
   group=new T.Group();scene.add(group);
-  panes=LVL.panes.map(p=>Object.assign({},p));lt=0;wind=LVL.wind||0;
+  panes=(LVL.layout?LVL.layout():LVL.panes).map(p=>Object.assign({},p));lt=0;wind=LVL.wind||0;
   world.visible=!LVL.island;setNight(!!LVL.night);
   if(LVL.type==='house')buildHouse(LVL);else if(LVL.type==='greenhouse')buildGreenhouse(LVL);else buildStand(LVL);
   buildMech(LVL);

@@ -1,15 +1,16 @@
 'use strict';
-/* Windows that must break (a protected cat window is not one of them). */
-const targets=()=>panes.filter(p=>!p.safe);
+/* Windows that must break. */
+const targets=()=>panes;
 function checkWin(){
   if(won||sandbox||targets().some(p=>!p.broken))return;won=true;$('hint').hidden=true;
   if(drag){drag=null;hidePreview()}
   const house=LVL.type==='house';
-  if(house)later(.75,()=>{grumpT=0;grump.visible=true;sfx.hey();$('bubble').hidden=false});
-  later(house?2.1:1.15,showCard);
+  if(house)later(.75,()=>{grumpT=0;grump.visible=true;sfx.hey();$('bubble').hidden=false;returnBalls()});
+  /* give the returned balls time to roll out before the card */
+  later(house?Math.max(2.1,1.15+Math.min(inBalls,8)*.28+.9):1.15,showCard);
 }
 function showCard(){
-  const tg=targets(),n=tg.length,need=LVL.panes.reduce((k,p)=>k+(p.safe?0:1+(p.armor||0)+((p.hp||1)-1)),0)+(LVL.island?1:0)+(LVL.switch?1:0);
+  const tg=targets(),n=tg.length,need=panes.reduce((k,p)=>k+1+(p.armor||0)+((p.hp||1)-1),0)+(LVL.island?1:0)+(LVL.switch?1:0);
   let st=used<=need?3:used===need+1?2:1;
   if(LVL.bonus){const k=tg.filter(p=>p.broken).length;st=k===n?3:k>=n*.75?2:1;
     $('cardTitle').textContent=k===n?'Perfect smash!':'Bonus done!';$('cardText').textContent=k+' of '+n+' windows'}
@@ -47,7 +48,7 @@ function crossPlane(b){
       if(p.armor>0){breakBoards(p,b);wallHit(b,'soft');return}
       if(p.hp>1){crackPane(p,b);wallHit(b,'soft');return}
       smash(p,b);return}
-    if(p.room){b.state='dead';b.a.set(0,-G,0);b.floor=p.room.floor+R;b.pane=p;b.age=0}else b.state='passed';
+    if(p.room){b.state='dead';b.a.set(0,-G,0);b.floor=p.room.floor+R;b.pane=p;b.age=0;inBalls++}else b.state='passed';
     return}}
   if(LVL.type==='sandbox')return;
   if(LVL.type==='stand'){const f=.3;for(const p of panes){
@@ -66,7 +67,7 @@ function stepBall(b,dt){
     const z0=b.p.z;b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
     if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
-    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b);padHit(b)}
+    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b);padHit(b);catHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
     if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;b.p.y=fl;
@@ -83,6 +84,21 @@ function stepBall(b,dt){
   const done=b.age>(b.state==='fly'?3:b.state==='inside'?1.6:2.2)||b.p.z<-16;
   if(done){if(b.state==='fly')b.state='gone';removeBallMesh(b);return false}
   return true;
+}
+
+/* ---------- the owner rolls the balls that went inside back out of the door, to stop at their feet ---------- */
+function returnBalls(){
+  for(let i=0;i<Math.min(inBalls,8);i++)later(.4+i*.28,()=>{
+    const side=i%2?1:-1,m=new T.Mesh(ballGeo,ballMat);m.castShadow=true;m.position.set(side*.45,R,-.3);scene.add(m);
+    returned.push({m,t:0,x0:side*.45,x1:side*(.75+(i>>1)*.62),z1:1.75+rnd(-.2,.25),s:side});sfx.thud();
+  });
+}
+function stepReturned(dt){
+  returned.forEach(r=>{if(r.t>=1)return;const t0=r.t;r.t=Math.min(1,r.t+dt/.75);
+    const e=k=>1-Math.pow(1-k,3),d=e(r.t)-e(t0);
+    const dx=(r.x1-r.x0)*d,dz=(r.z1+.3)*d;r.m.position.x+=dx;r.m.position.z+=dz;
+    r.m.position.y=R+Math.abs(Math.sin(r.t*Math.PI*2))*.25*(1-r.t);
+    r.m.rotateOnWorldAxis(new T.Vector3(dz,0,-dx).normalize(),Math.hypot(dx,dz)/R)});
 }
 
 /* ---------- main loop ---------- */
@@ -103,7 +119,9 @@ function tick(dt,real){
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
   for(let i=balls.length-1;i>=0;i--)if(!stepBall(balls[i],dt))balls.splice(i,1);
   for(let i=shards.length-1;i>=0;i--){const s=shards[i];if(s.rest)continue;
-    if(s.delay>0){s.delay-=dt;if(s.stuck&&s.delay<.2)s.m.rotation.z=Math.sin(s.delay*70)*.03;if(s.delay<=0&&s.stuck){sfx.tink();s.v.set(rnd(-.6,.6),-.5,rnd(.2,2));}continue}
+    /* shards still in the frame ride along with a moving window (rail windows) until they drop */
+    if(s.delay>0&&s.pane.x!==s.px){s.m.position.x+=s.pane.x-s.px;s.px=s.pane.x}
+    if(s.delay>0){s.delay-=dt;if(s.stuck&&s.delay<.2)s.m.rotation.z=Math.sin(s.delay*70)*.03;if(s.delay<=0){if(s.stuck){sfx.tink();s.v.set(rnd(-.6,.6),-.5,rnd(.2,2))}s.v.x+=s.pane.vx||0}continue}
     s.age+=dt;s.v.y-=23*dt;s.m.position.addScaledVector(s.v,dt);s.m.rotation.x+=s.w.x*dt;s.m.rotation.y+=s.w.y*dt;s.m.rotation.z+=s.w.z*dt;
     if(s.m.position.y<s.floor){
       s.m.position.y=s.floor;
@@ -115,6 +133,7 @@ function tick(dt,real){
     const q=d.m.position;if(q.z<d.zMin){q.z=d.zMin;d.v.z*=-.4}if(q.z>d.zMax){q.z=d.zMax;d.v.z*=-.4}if(q.x<d.xMin){q.x=d.xMin;d.v.x*=-.4}if(q.x>d.xMax){q.x=d.xMax;d.v.x*=-.4}
     if(q.y<d.floor){q.y=d.floor;if(d.v.y<-2.5){d.v.y*=-.32;d.v.x*=.6;d.v.z*=.6}else d.rest=true}}
   for(let i=fxObjs.length-1;i>=0;i--){const f=fxObjs[i];f.t+=real;const k=f.t/f.d;if(k>=1){scene.remove(f.m);f.m.geometry.dispose();f.m.material.dispose();fxObjs.splice(i,1);continue}f.m.scale.setScalar(1+k*8);f.m.material.opacity=.5*(1-k)}
+  stepReturned(real);
   spark.step(dt);dust.step(dt);
   clouds.forEach(c=>{c.position.x+=c.userData.s*real;if(c.position.x>110)c.position.x=-110});
   if(grumpT>=0){grumpT+=real;const k=clamp(grumpT/.28,0,1),e=1-Math.pow(1-k,3);door.rotation.y=-1.75*e;grump.position.z=lerp(-.6,1.1,e);grump.rotation.z=Math.sin(grumpT*22)*.05;grump.userData.arm.rotation.z=-.25+Math.sin(grumpT*28)*.38;

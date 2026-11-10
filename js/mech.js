@@ -46,7 +46,7 @@ function obHit(b,o,imp){
 /* Build every mechanic a level lists. Runs after buildHouse/buildStand. */
 function buildMech(L){
   if(L.island)buildIslands(L);
-  panes.forEach(p=>{if(p.shutter)buildShutter(p);if(p.armor)buildBoards(p);if(p.hp>1)buildWired(p);if(p.safe)buildCat(p)});
+  panes.forEach(p=>{if(p.shutter)buildShutter(p);if(p.armor)buildBoards(p);if(p.hp>1)buildWired(p)});
   if(L.mill)buildMill(L.mill);
   if(L.gantry)buildGantry(L.gantry);
   if(L.switch)buildSwitch(L.switch);
@@ -54,6 +54,7 @@ function buildMech(L){
   if(L.gwall)buildGardenWall(L);
   if(L.towers)buildTowers(L);
   if(L.night)buildNight(L);
+  if(L.cat)buildCat(L);
   if(L.board)buildBoard(L.board);
   (L.hedges||[]).forEach(buildHedge);
   if(L.porch)buildPorch();
@@ -234,11 +235,13 @@ function buildGantry(o){
   addOb(box(o.x*2+.36,.34,.34,c,0,o.y,.1,g),'metal');
 }
 
-/* ---------- protected window: a cat on the sill. Breaking this glass fails the level. ---------- */
-function buildCat(p){
-  const g=group,O=0xf29a3a,y0=p.y-p.h/2;
-  box(p.w,.1,.7,0xfffaf0,p.x,y0-.05,-.55,g);
-  const c=new T.Group();c.position.set(p.x,y0,-.6);g.add(c);
+/* ---------- cat: sits on the sill in front of one window and blocks it (a ball that reaches it is swatted away and lost).
+   After each kick is over it ducks down and pops up at another unbroken window; it never moves while a ball is in the air.
+   With one window left it gives up and sits on the chimney. ---------- */
+let catS=null;
+const catOn=p=>!!catS&&catS.pane===p;
+function buildCat(L){
+  const g=group,O=0xf29a3a,c=new T.Group();c.scale.setScalar(1.35);g.add(c);
   const sp=(r,col,x,y,z,sx,sy,sz,par)=>{const m=new T.Mesh(new T.SphereGeometry(r,14,10),mat(col));m.position.set(x,y,z);m.scale.set(sx,sy,sz);(par||c).add(m);return m};
   sp(.4,O,0,.38,0,1,1.05,.85);sp(.24,0xfff3e0,0,.34,.2,1,1.1,.6);
   [-1,1].forEach(s=>sp(.13,0xfff3e0,s*.17,.08,.27,1,.6,1.2));
@@ -249,16 +252,43 @@ function buildCat(p){
     const ey=new T.Mesh(new T.SphereGeometry(.055,8,6),bmat(0x23304a));ey.position.set(s*.11,.04,.27);hd.add(ey);
     [-1,1].forEach(k=>{const w=box(.3,.014,.014,0x23304a,s*.27,-.08+k*.035,.22,hd,false);w.rotation.z=s*k*.18})});
   sp(.045,0xff8fa8,0,-.03,.31,1,1,1,hd);
+  const paw=new T.Group();paw.position.set(-.3,.55,.1);c.add(paw);sp(.1,0xfff3e0,0,-.3,0,1,1.6,1,paw);paw.rotation.z=-2.6;
   const tail=new T.Group();tail.position.set(.3,.12,-.2);c.add(tail);box(.1,.8,.1,O,0,.4,0,tail,false);
-  movers.push((t,dt)=>{
-    if(p.scared===undefined){hd.rotation.y=Math.sin(t*.8)*.45;hd.rotation.z=Math.sin(t*.5)*.08;tail.rotation.z=-.45+Math.sin(t*2.6)*.35;return}
-    p.scared+=dt;const k=p.scared;c.position.y=y0+k*6-k*k*10;c.position.z=-.6-k*5;c.rotation.x=-k*4;tail.rotation.z=-1.4;if(k>.7)c.visible=false});
+  catS={g:c,hd,tail,paw,pane:null,roof:false,used:-1,anim:0,from:null,to:null,swatT:9,
+    roofAt:new T.Vector3(4,L.H+3.04,-3)};
+  const open=panes.filter(p=>!p.xf);catSit(open[(Math.random()*open.length)|0]);catS.used=used;
+  movers.push((t,dt)=>{const k=catS;
+    k.hd.rotation.y=Math.sin(t*.8)*.45;k.hd.rotation.z=Math.sin(t*.5)*.08;k.tail.rotation.z=-.45+Math.sin(t*2.6)*.35;
+    k.swatT+=dt;const sw=k.swatT<.35?Math.sin(k.swatT/.35*Math.PI):0;k.paw.rotation.z=-2.6+sw*1.9;k.paw.rotation.x=-sw*.9;
+    /* a kick has happened and is over: move on */
+    if(k.used!==used&&!k.anim&&k.swatT>.6&&!won&&!balls.some(b=>b.state==='fly'))catNext();
+    if(k.anim){k.anim+=dt;const a=k.anim;
+      if(a<.2){const e=a/.2;k.g.scale.setScalar(1.35*(1-e));k.g.position.y=k.from.y-e*.4}
+      else{if(!k.placed){k.placed=true;catSit(k.to)}
+        const e=clamp((a-.2)/.28,0,1),o=1+Math.sin(e*Math.PI)*.18;k.g.scale.setScalar(1.35*e*o);k.g.position.y=k.base.y-(1-e)*.4;
+        if(e>=1){k.anim=0;k.g.position.y=k.base.y}}}
+  });
 }
-function catScare(p){
-  p.scared=0;won=true;failing=true;if(drag){drag=null;hidePreview()}
-  sfx.meow();const t=$('toast');t.textContent='Not the cat!';t.hidden=false;
-  for(let i=0;i<30;i++)dust.emit(p.x,p.y-p.h/2+.6,-.5,rnd(-2,2),rnd(0,3),rnd(-1,1.5),rnd(.4,.8),[.95,.62,.25],3);
-  later(1.6,()=>{failing=false;loadLevel(level)});
+/* Put the cat on a window's sill (or the chimney when p is null). */
+function catSit(p){
+  const k=catS;k.pane=p;k.roof=!p;
+  k.base=p?new T.Vector3(p.x,p.y-p.h/2-.25,p.boards?.85:.62):k.roofAt.clone(); /* sits further out in front of nailed boards */k.g.position.copy(k.base);
+}
+function catNext(){
+  const k=catS;k.used=used;if(k.roof)return;
+  const open=panes.filter(p=>!p.broken&&!p.xf);if(!open.length)return;
+  const others=open.filter(p=>p!==k.pane);
+  k.from=k.g.position.clone();k.to=open.length===1?null:others[(Math.random()*others.length)|0]; /* null = the chimney */
+  k.placed=false;k.anim=1e-4;k.pane=null;sfx.meow(); /* nothing is blocked while it hops */
+}
+/* The ball reaches the cat's window: the cat swats it back out. */
+function catHit(b){
+  const k=catS;if(!k||!k.pane||k.anim||b.ghost||b.v.z>=0)return;const p=k.pane;
+  const zf=k.base.z+.75;if(b.p.z>zf||b.p.z<ZF||Math.abs(b.p.x-p.x)>p.w/2+R*.6||b.p.y>p.y+p.h/2+R*.6||b.p.y<p.y-p.h/2-.3)return;
+  b.p.z=zf;b.live=false;b.state='bounce';b.age=Math.min(b.age,.4);b.a.set(0,-S.gravity,0);
+  b.v.set(b.v.x*.4+(b.p.x<p.x?-2:2),Math.max(2.5,b.v.y*.3),Math.abs(b.v.z)*.35+2);
+  k.swatT=0;sfx.meow();addShake(.18);pop('SWAT!',p.x,p.y+.4,.8,true);
+  for(let i=0;i<18;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.95,.62,.25],2);
 }
 
 /* ---------- island hop: kick onto the middle island, the view flies there, then kick at the house.
@@ -313,7 +343,7 @@ function isleTouch(b){
 let sw=null,pads=[];
 function aimTargets(){
   const a=[];
-  panes.forEach(p=>{if(p.broken||p.sky||p.safe||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
+  panes.forEach(p=>{if(p.broken||p.sky||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
   if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
   return a;
@@ -349,7 +379,7 @@ function buildPad(o){
 function padHit(b){
   if(!pads.length||b.ghost||b.sunk||b.state==='inside'||b.state==='dead'||b.v.y>1)return;
   for(const pd of pads){const dx=b.p.x-pd.x,dz=b.p.z-pd.z;if(dx*dx+dz*dz>pd.r*pd.r||b.p.y>pd.top+R)continue;
-    let best=null;panes.forEach(p=>{if(p.broken||p.safe||p.xf||Math.abs(p.x-pd.x)>3)return;if(!best||p.y<best.y)best=p});
+    let best=null;panes.forEach(p=>{if(p.broken||catOn(p)||p.xf||Math.abs(p.x-pd.x)>3)return;if(!best||p.y<best.y)best=p});
     const g=S.gravity,Tt=1.3;b.p.y=pd.top+R;b.live=false;b.state='fly';b.age=0;b.a.set(0,-g,0);
     if(best)b.v.set((best.x-b.p.x)/Tt,(best.y-b.p.y+.5*g*Tt*Tt)/Tt,(ZF-.3-b.p.z)/Tt);else b.v.set(b.v.x*.5,13,Math.min(b.v.z,-4));
     pd.t=0;sfx.boing();for(let i=0;i<16;i++)dust.emit(b.p.x,pd.top,b.p.z,rnd(-2,2),rnd(.5,2),rnd(-2,2),rnd(.2,.4),[.95,.95,1],2);
@@ -374,31 +404,64 @@ function buildTowers(L){
     [h*.35,h*.7].forEach(y=>{box(.7,1,.1,0x2b2230,x,y,.03,group,false);box(.9,.12,.2,0xfffaf0,x,y-.56,.05,group,false)})});
 }
 
-/* ---------- night: dark sky, a lighthouse beam sweeps the house; windows only show while it is on them ---------- */
+/* ---------- night (memory level): the house is near-black, a lighthouse in front of it at the left sweeps its beam
+   across the front every few seconds and the windows only show while the beam is on them. Remember where they are.
+   The first sweep is slow so the player gets a fair first look. A broken window's room stays lit. ---------- */
 const dayBg=scene.background,nightBg=canvasTex(8,256,(g,w,h)=>{const a=g.createLinearGradient(0,0,0,h);a.addColorStop(0,'#070b22');a.addColorStop(.6,'#1b2550');a.addColorStop(.78,'#3b3f6e');g.fillStyle=a;g.fillRect(0,0,w,h)});
 const starPts=(function(){const n=260,pos=new Float32Array(n*3);for(let i=0;i<n;i++){const a=rnd(-1.4,1.4),e=rnd(.12,1.1);pos[i*3]=Math.sin(a)*Math.cos(e)*150;pos[i*3+1]=Math.sin(e)*150;pos[i*3+2]=-Math.cos(a)*Math.cos(e)*150}
   const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));const p=new T.Points(g,new T.PointsMaterial({color:0xffffff,size:1.1,map:dot,transparent:true,depthWrite:false}));p.visible=false;scene.add(p);return p})();
 const moon=new T.Mesh(new T.CircleGeometry(6,32),bmat(0xfff6d8));moon.position.set(45,52,-140);moon.visible=false;scene.add(moon);
 function setNight(on){
   scene.background=on?nightBg:dayBg;starPts.visible=moon.visible=on;clouds.forEach(c=>c.visible=!on);
-  hemi.intensity=on?.26:.72;hemi.color.setHex(on?0x8090c8:0xffffff);sun.intensity=on?.18:.72;sun.color.setHex(on?0x9fb0ff:0xfff1d6);
+  hemi.intensity=on?.12:.72;hemi.color.setHex(on?0x8090c8:0xffffff);sun.intensity=on?.07:.72;sun.castShadow=!on; /* hidden sills would still cast shadows and give windows away */sun.color.setHex(on?0x9fb0ff:0xfff1d6);
 }
+/* beam texture: soft across its width, fading along its length */
+const beamTex=canvasTex(64,128,(g,w,h)=>{const im=g.createImageData(w,h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const u=(x+.5)/w,v=(y+.5)/h,a=Math.pow(Math.sin(Math.PI*u),1.6)*(1-.6*v),k=(y*w+x)*4;im.data[k]=255;im.data[k+1]=242;im.data[k+2]=190;im.data[k+3]=a*255}g.putImageData(im,0,0)});
+const poolTex=canvasTex(128,128,(g,w,h)=>{const a=g.createRadialGradient(64,64,0,64,64,64);a.addColorStop(0,'rgba(255,240,190,.9)');a.addColorStop(.5,'rgba(255,236,180,.45)');a.addColorStop(1,'rgba(255,230,170,0)');g.fillStyle=a;g.fillRect(0,0,w,h)});
+const NIGHT={first:4.5,period:4,sweep:2.6,x0:-12.5,x1:12.5,y:4.2};
+/* Where the beam is at time t: u in 0..1 across the house, or null while it points away. */
+function beamAt(t){const N=NIGHT;if(t<N.first)return t/N.first;const c=(t-N.first)%N.period;return c<N.sweep?c/N.sweep:null}
 function buildNight(L){
-  const g=group,lx=-11,lz=-7,lh=10.5;
-  for(let i=0;i<5;i++){const m=new T.Mesh(new T.CylinderGeometry(1.25-i*.1,1.35-i*.1,2,16),mat(i%2?0xd9503f:0xfff8e8));m.position.set(lx,1+i*2,lz);m.castShadow=true;g.add(m)}
-  box(1.9,.25,1.9,0x23304a,lx,lh-.4,lz,g);const lamp=new T.Mesh(new T.SphereGeometry(.55,14,10),bmat(0xfff2b0));lamp.position.set(lx,lh,lz);g.add(lamp);
-  const cap=new T.Mesh(new T.ConeGeometry(1.1,1.2,12),mat(0x23304a));cap.position.set(lx,lh+1,lz);g.add(cap);
-  const bg=new T.CylinderGeometry(3.2,.35,1,28,1,true);bg.translate(0,.5,0);bg.rotateX(Math.PI/2);
-  const beam=new T.Mesh(bg,new T.MeshBasicMaterial({color:0xfff2b0,transparent:true,opacity:.16,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide}));beam.position.set(lx,lh,lz);g.add(beam);
-  const sl=new T.SpotLight(0xfff2c0,2.4,80,.3,.55,1);sl.position.set(lx,lh,lz);g.add(sl);g.add(sl.target);
+  const g=group,lx=-12.5,lz=3.2,lh=10.2;
+  for(let i=0;i<5;i++){const m=new T.Mesh(new T.CylinderGeometry(1.15-i*.09,1.25-i*.09,2,16),mat(i%2?0xd9503f:0xfff8e8));m.position.set(lx,1+i*2,lz);m.castShadow=true;g.add(m)}
+  box(1.8,.25,1.8,0x23304a,lx,lh-.45,lz,g);
+  const lamp=new T.Mesh(new T.SphereGeometry(.5,14,10),bmat(0xfff2b0));lamp.position.set(lx,lh,lz);g.add(lamp);
+  const cap=new T.Mesh(new T.ConeGeometry(1.05,1.2,12),mat(0x23304a));cap.position.set(lx,lh+1,lz);g.add(cap);
+  const glow=new T.Sprite(new T.SpriteMaterial({map:dot,color:0xfff2b0,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));glow.position.set(lx,lh,lz);glow.scale.setScalar(4.5);g.add(glow);
+  /* the beam: a flat strip from the lamp to the wall, turned each frame to face the camera */
+  const bg=new T.BufferGeometry(),bp=new Float32Array(12);bg.setAttribute('position',new T.BufferAttribute(bp,3));bg.setAttribute('uv',new T.BufferAttribute(new Float32Array([0,1,1,1,0,0,1,0]),2));bg.setIndex([0,2,1,1,2,3]);
+  const beam=new T.Mesh(bg,new T.MeshBasicMaterial({map:beamTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide}));beam.frustumCulled=false;g.add(beam);
+  const pool=new T.Mesh(new T.PlaneGeometry(5.6,4.6),new T.MeshBasicMaterial({map:poolTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));pool.position.z=.3;pool.renderOrder=6;g.add(pool);
+  const sl=new T.SpotLight(0xfff2c0,2.6,70,.24,1,1);sl.position.set(lx,lh,lz);g.add(sl);g.add(sl.target);
   const kl=new T.PointLight(0xffd9a0,.9,11);kl.position.set(0,3.2,D+1);g.add(kl);
-  const pl=new T.PointLight(0xffc070,.7,7);pl.position.set(0,3.7,1.2);g.add(pl);
-  /* dark cover behind each window's glass; it clears while the beam is on that window */
-  panes.forEach(p=>{if(p.xf)return;const cv=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({color:0x0b1030,transparent:true,depthWrite:false}));cv.position.set(p.x,p.y,-.08);cv.renderOrder=2;g.add(cv);
-    p.mesh.material=glassMat.clone();p.cover=cv});
-  const tgt=new T.Vector3();
+  /* a patch of wall in front of each window (frame and sill included), lit like the wall, so an unlit window can't be seen.
+     It fades out while the beam is on that window; its texture lines up with the wall's bricks. */
+  const wt=g.userData.wallTex,wm=g.userData.wall;wm.material[0]=new T.MeshPhongMaterial({map:wt,specular:0x000000,shininess:0}); /* per-pixel, so the wall and the covers light the same */
+  panes.forEach(p=>{if(p.xf)return;const cw=p.w+.75,ch=p.h+1.05,cy=p.y-.2,t=wt.clone();t.needsUpdate=true;
+    t.repeat.set(cw*wt.repeat.x,ch*wt.repeat.y);t.offset.set((p.x-cw/2)*wt.repeat.x,(cy-ch/2)*wt.repeat.y);
+    const cv=new T.Mesh(new T.PlaneGeometry(cw,ch),new T.MeshPhongMaterial({map:t,specular:0x000000,shininess:0,transparent:true,depthWrite:false}));cv.position.set(p.x,cy,.64);cv.renderOrder=5;cv.receiveShadow=true;g.add(cv);
+    p.cover=cv});
+  const A=new T.Vector3(lx,lh,lz),B=new T.Vector3(),dir=new T.Vector3(),side=new T.Vector3(),view=new T.Vector3();
   movers.push(t=>{
-    const bx=10.5*Math.sin(t*.42);tgt.set(bx,3.6,0);sl.target.position.copy(tgt);beam.lookAt(tgt);beam.scale.set(1,1,beam.position.distanceTo(tgt));
-    panes.forEach(p=>{if(!p.cover)return;const lit=Math.exp(-Math.pow((p.x-bx)/2.6,2));p.lit=lit;p.cover.material.opacity=p.broken?0:.985*(1-lit);p.mesh.material.opacity=.12+.88*lit});
+    const u=beamAt(t),on=u!==null,I=on?clamp(Math.min(u,1-u)/.07,0,1):0,bx=on?lerp(NIGHT.x0,NIGHT.x1,u):-99;
+    B.set(bx,NIGHT.y,.2);sl.target.position.copy(B);sl.intensity=2.6*I;
+    beam.visible=pool.visible=I>0;
+    if(I>0){dir.subVectors(B,A);view.subVectors(camera.position,A);side.crossVectors(dir,view).normalize();
+      const w0=.32,w1=2.5;[[A,-w0],[A,w0],[B,-w1],[B,w1]].forEach((q,i)=>{bp[i*3]=q[0].x+side.x*q[1];bp[i*3+1]=q[0].y+side.y*q[1];bp[i*3+2]=q[0].z+side.z*q[1]});
+      bg.attributes.position.needsUpdate=true;beam.material.opacity=.55*I;
+      pool.position.x=bx;pool.position.y=NIGHT.y;pool.material.opacity=.42*I}
+    panes.forEach(p=>{if(!p.cover)return;const lit=I*Math.exp(-Math.pow((p.x-bx)/2.2,2));p.cover.material.opacity=p.broken?0:1-lit;p.cover.visible=p.cover.material.opacity>.002});
   });
+}
+/* A new 4-window layout on every attempt (two rows; rooms behind windows must not overlap). */
+let nightKey='';
+function nightLayout(){
+  const slots=[...[-4.7,-2.4,2.4,4.7].map(x=>({x,y:2.5})),...[-4.6,-2.3,0,2.3,4.6].map(x=>({x,y:6}))];
+  let pick=[],key='';
+  for(let n=0;n<40;n++){pick=[];const all=slots.slice().sort(()=>Math.random()-.5);
+    for(const s of all){if(pick.length===4)break;if(pick.some(q=>q.y===s.y&&Math.abs(q.x-s.x)<4.3))continue;pick.push(s)}
+    key=pick.map(q=>q.x+','+q.y).sort().join('|');if(pick.length===4&&key!==nightKey)break}
+  nightKey=key;
+  const props=[['fish',0xcfe0f0],['cake',0xffd7c8],['vase',0xe3d6f2],['tv',0xd9efc6]].sort(()=>Math.random()-.5);
+  return pick.map((q,i)=>({x:q.x,y:q.y,w:1.8,h:1.9,prop:props[i][0],wall:props[i][1]}));
 }

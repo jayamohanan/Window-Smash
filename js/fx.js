@@ -42,7 +42,7 @@ function shatter(p,hx,hy,ballSpeed){
     const v=new T.Vector3(dx/d*rad,dy/d*rad+rnd(0,2.5),out?rnd(2.5,10):-ballSpeed*rnd(.12,.38)*(1.1-n));
     if(p.xf){m.position.applyMatrix4(p.xf);m.quaternion.copy(p.q);v.applyQuaternion(p.q)} /* skylight: pane-local to world */
     const stuck=edge&&Math.random()<.38;
-    shards.push({m,v,w:new T.Vector3(rnd(-16,16),rnd(-16,16),rnd(-16,16)),delay:stuck?rnd(.45,2.3):n*.14+rnd(0,.05),stuck,pane:p,rest:false,age:0,floor:out?.04:(p.room?p.room.floor+.04:.04)});
+    shards.push({m,v,w:new T.Vector3(rnd(-16,16),rnd(-16,16),rnd(-16,16)),delay:stuck?rnd(.45,2.3):n*.14+rnd(0,.05),stuck,pane:p,px:p.x,rest:false,age:0,floor:out?.04:(p.room?p.room.floor+.04:.04)});
   };
   for(let i=0;i<rays;i++)for(let k=0;k<rs.length-1;k++){
     const a=pt(i,k,jit),b=pt(i+1,k,jit),c=pt(i+1,k+1,jit),e=pt(i,k+1,jit);
@@ -66,9 +66,8 @@ function smash(p,b,lh){
   freezeT=S.freeze/1000;slowT=.26;addShake(.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
   sfx.glass();
   if(p.sky){b.live=false;b.ghost=true;b.state='passed';b.age=0;b.a.set(0,-S.gravity,0);b.v.multiplyScalar(.4)}
-  else if(p.room){const dir=p.room.target.clone().sub(b.p).normalize();b.v.copy(dir).multiplyScalar(Math.max(13,speed*.6));b.a.set(0,0,0);b.state='inside';b.pane=p}
+  else if(p.room){const dir=p.room.target.clone().sub(b.p).normalize();b.v.copy(dir).multiplyScalar(Math.max(13,speed*.6));b.a.set(0,0,0);b.state='inside';b.pane=p;inBalls++}
   else{b.v.multiplyScalar(.72);b.a.x=0;b.state='passed'}
-  if(p.safe){catScare(p);return}
   checkWin();
 }
 function propSmash(p,b){
