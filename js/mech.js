@@ -3,10 +3,10 @@
    Solid obstacles (oriented boxes the ball bounces off), movers (per-frame animation),
    shutters, wooden boards, wired glass, the porch skylight and wind. */
 let obs=[],movers=[],lt=0,wind=0;
-const _lp=new T.Vector3(),_n=new T.Vector3(),_rv=new T.Vector3(),_wp=new T.Vector3();
+const _lp=new T.Vector3(),_lq=new T.Vector3(),_n=new T.Vector3(),_rv=new T.Vector3(),_wp=new T.Vector3();
 
 /* Bounce per material: e = restitution along the normal, f = friction kept along the surface. */
-const OBK={wood:{e:.45,f:.75,snd:'wood'},roof:{e:.3,f:.82,snd:'thud'},wall:{e:.35,f:.7,snd:'thud'},metal:{e:.5,f:.8,snd:'clang'},hedge:{e:.1,f:.3,snd:'rustle'}};
+const OBK={wood:{e:.45,f:.75,snd:'wood'},roof:{e:.3,f:.82,snd:'thud'},wall:{e:.35,f:.7,snd:'thud'},metal:{e:.5,f:.8,snd:'clang'},tramp:{e:.6,f:.8,snd:'boing'},hedge:{e:.1,f:.3,snd:'rustle'}};
 /* Register a box() mesh as a solid. Meshes used as solids must not be scaled. */
 function addOb(m,kind){const g=m.geometry.parameters;obs.push({m,kind,h:new T.Vector3(g.width/2,g.height/2,g.depth/2),inv:new T.Matrix4(),q:new T.Quaternion(),vel:new T.Vector3(),last:null});return m}
 function updateObs(dt){
@@ -19,8 +19,9 @@ function mechTick(dt){lt+=dt;movers.forEach(f=>f(lt,dt));updateObs(dt)}
 
 /* Sphere vs oriented box, in the box's local frame. Moving solids hand their velocity to the ball. */
 function hitObs(b){
-  if(b.ghost)return;
+  if(b.ghost||b.rebound)return; /* a rebounding ball is on a set path to its glass */
   for(const o of obs){
+    if(o.skip&&o.skip(b))continue;
     _lp.copy(b.p).applyMatrix4(o.inv);const h=o.h;
     let nx=_lp.x-clamp(_lp.x,-h.x,h.x),ny=_lp.y-clamp(_lp.y,-h.y,h.y),nz=_lp.z-clamp(_lp.z,-h.z,h.z),d=Math.hypot(nx,ny,nz);
     if(d>=R)continue;
@@ -39,15 +40,20 @@ function obHit(b,o,imp){
   if(b.state==='fly'||b.state==='ground'){b.state='bounce';b.age=Math.min(b.age,.4)}
   if(imp<2.5)return;
   const k=OBK[o.kind];sfx[k.snd]();addShake(Math.min(.25,imp*.012));
-  if(o.kind==='hedge'){for(let i=0;i<26;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2.5,2.5),rnd(-.5,3),rnd(-1,2.5),rnd(.4,.9),Math.random()<.5?[.3,.6,.25]:[.45,.75,.3],5);if(imp>6)pop('RUSTLE',b.p.x,b.p.y+.6,b.p.z,true)}
-  else{for(let i=0;i<12;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.92,.8,.6],2);if(imp>8&&Math.random()<.6)pop(o.kind==='metal'?'CLANG':'BONK',b.p.x,b.p.y+.5,b.p.z,true)}
+  if(o.kind==='metal')for(let i=0;i<16;i++)spark.emit(b.p.x,b.p.y,b.p.z,rnd(-4,4),rnd(-2,4),rnd(-1,4),rnd(.15,.35),[1,.85,.45],6);
+  if(o.kind==='hedge'){for(let i=0;i<26;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2.5,2.5),rnd(-.5,3),rnd(-1,2.5),rnd(.4,.9),Math.random()<.5?[.3,.6,.25]:[.45,.75,.3],5)}
+  else{for(let i=0;i<12;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.92,.8,.6],2)}
 }
 
 /* Build every mechanic a level lists. Runs after buildHouse/buildStand. */
 function buildMech(L){
   if(L.island)buildIslands(L);
+  if(L.field==='stack')buildStacks(L);else if(L.field==='carousel')buildCarousel(L);else if(L.field==='behind')buildBehind(L);else if(L.field==='aquarium')buildAquarium(L);
+  if(L.revolver)buildRevolver(L.revolver);
+  panes.forEach(p=>{if(p.awn)buildAwning(p)});
   panes.forEach(p=>{if(p.shutter)buildShutter(p);if(p.armor)buildBoards(p);if(p.hp>1)buildWired(p)});
   if(L.mill)buildMill(L.mill);
+  if(L.wheel)buildWheel(L.wheel);
   if(L.gantry)buildGantry(L.gantry);
   if(L.switch)buildSwitch(L.switch);
   if(L.pads)L.pads.forEach(buildPad);
@@ -60,6 +66,7 @@ function buildMech(L){
   if(L.porch)buildPorch();
   if(wind)buildWind();
   updateObs(0);
+  if(hop){hop.house=panes;panes=hop.first} /* island levels: the near island's frames are the targets until the hop */
 }
 
 /* ---------- roller shutter: rolls down over the glass and back up on a loop ---------- */
@@ -96,21 +103,21 @@ const wireTex=canvasTex(128,128,(g,w,h)=>{g.strokeStyle='rgba(70,90,110,.55)';g.
 wireTex.wrapS=wireTex.wrapT=T.RepeatWrapping;
 function buildWired(p){
   const t=wireTex.clone();t.needsUpdate=true;t.repeat.set(p.w/.9,p.h/.9);
-  const wm=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));wm.position.set(p.x,p.y,.015);wm.renderOrder=4;group.add(wm);
+  const wm=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({map:t,transparent:true,depthWrite:false}));wm.position.set(p.x,p.y,p.sg?.05:.015);wm.renderOrder=4;(p.sg||group).add(wm);
   const c=document.createElement('canvas');c.width=256;c.height=Math.round(256*p.h/p.w);const ct=new T.CanvasTexture(c);
-  const cm=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({map:ct,transparent:true,depthWrite:false}));cm.position.set(p.x,p.y,.03);cm.renderOrder=5;group.add(cm);
+  const cm=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({map:ct,transparent:true,depthWrite:false}));cm.position.set(p.x,p.y,p.sg?.06:.03);cm.renderOrder=5;(p.sg||group).add(cm);
   p.extra=[wm,cm];p.crackCv=c;p.crackTex=ct;
 }
-function crackPane(p,b){
-  p.hp--;const c=p.crackCv,g=c.getContext('2d'),k=c.width/p.w;
-  const lx=(clamp(b.p.x-p.x,-p.w/2,p.w/2)+p.w/2)*k,ly=(p.h/2-clamp(b.p.y-p.y,-p.h/2,p.h/2))*k,lines=[];
+function crackPane(p,b,lh){
+  p.hp--;const c=p.crackCv,g=c.getContext('2d'),k=c.width/p.w,src=lh||b.p;
+  const lx=(clamp(src.x-p.x,-p.w/2,p.w/2)+p.w/2)*k,ly=(p.h/2-clamp(src.y-p.y,-p.h/2,p.h/2))*k,lines=[];
   for(let i=0;i<12;i++){const a=i/12*Math.PI*2+rnd(-.2,.2),L=rnd(70,190);let x=lx,y=ly;const pts=[[x,y]];for(let s=0;s<6;s++){const ang=a+rnd(-.4,.4);x+=Math.cos(ang)*L/6;y+=Math.sin(ang)*L/6;pts.push([x,y])}lines.push(pts)}
   const rings=[1,3].map(r=>lines.map(l=>l[r]));
   const stroke=(col,wd)=>{g.strokeStyle=col;g.lineWidth=wd;g.lineCap=g.lineJoin='round';lines.forEach(l=>{g.beginPath();l.forEach((q,i)=>i?g.lineTo(q[0],q[1]):g.moveTo(q[0],q[1]));g.stroke()});
     rings.forEach(r=>{g.beginPath();r.forEach((q,i)=>i?g.lineTo(q[0]+rnd(-3,3),q[1]+rnd(-3,3)):g.moveTo(q[0],q[1]));g.closePath();g.stroke()})};
   stroke('rgba(35,48,74,.45)',4.5);stroke('rgba(255,255,255,.95)',2);
   p.crackTex.needsUpdate=true;
-  for(let i=0;i<30;i++)spark.emit(b.p.x,b.p.y,.2,rnd(-4,4),rnd(-3,5),rnd(0,5),rnd(.15,.45),[.85,.95,1],8);
+  for(let i=0;i<30;i++)spark.emit(b.p.x,b.p.y,p.sg?b.p.z:.2,rnd(-4,4),rnd(-3,5),rnd(0,5),rnd(.15,.45),[.85,.95,1],8);
   sfx.crack();addShake(.32);freezeT=.05;
 }
 
@@ -149,10 +156,14 @@ function buildPorch(){
   g.updateMatrixWorld(true);p.xf=sg.matrixWorld.clone();p.inv=p.xf.clone().invert();p.q=sg.getWorldQuaternion(new T.Quaternion());
 }
 /* Free-pane hit test (skylight, greenhouse back wall and roof): the ball touches the glass from its front side. */
-function skyHit(b){
+/* prev = where the ball was a substep ago, so a fast ball can't skip over the thin hit zone */
+function skyHit(b,prev){
   if(b.ghost)return;
-  for(const p of panes){if(!p.inv||p.broken)continue;_lp.copy(b.p).applyMatrix4(p.inv);
-    if(Math.abs(_lp.x)<=p.w/2+.08&&Math.abs(_lp.y)<=p.h/2+.08&&_lp.z<R&&_lp.z>-.5){smash(p,b,_lp.clone());return}}
+  for(const p of panes){if(!p.inv||p.broken)continue;_lp.copy(b.p).applyMatrix4(p.inv);const z1=_lp.z,z0=prev?_lq.copy(prev).applyMatrix4(p.inv).z:z1;
+    const lo=p.inner?-R:p.oneWay?-.05:-.5,hi=p.inner?.05:R;
+    if(Math.abs(_lp.x)<=p.w/2+.08&&Math.abs(_lp.y)<=p.h/2+.08&&Math.min(z0,z1)<hi&&Math.max(z0,z1)>lo){
+      if(p.hp>1){crackPane(p,b,_lp.clone());stopBall(b);return}
+      smash(p,b,_lp.clone());return}}
 }
 
 /* ---------- wind: steady sideways push on the ball, shown with streaks, leaves and a flag ---------- */
@@ -225,7 +236,215 @@ function buildMill(o){
   for(let k=0;k<n;k++){const arm=new T.Group();arm.rotation.z=k*Math.PI*2/n;rot.add(arm);
     addOb(box(len,.17,.17,0x6b4a2c,len/2,0,0,arm),'wood');
     addOb(box(len-.6,.9,.07,sail,(len+.6)/2,.5,.02,arm),'wood')}
-  movers.push(t=>{rot.rotation.z=-t*o.speed});
+  const dir=wind<0?1:-1; /* the tops of the sails move with the wind; no wind turns clockwise */
+  movers.push(t=>{rot.rotation.z=dir*t*o.speed});
+}
+
+/* ---------- gap wheel: one solid disc on the house front with a single quarter-circle cut-out, the only way to the windows.
+   Its bottom runs below the ground. It sinks out of the way when the level ends, so the owner and the windows can be seen. ---------- */
+let wheel=null;
+function sector(q,r0,r1,a0,a1){q.absarc(0,0,r1,a0,a1,false);q.absarc(0,0,r0,a1,a0,true);q.closePath();return q}
+const wheelTex=canvasTex(128,128,(g,w,h)=>{g.fillStyle='#e9dcc0';g.fillRect(0,0,w,h);g.strokeStyle='#c9b48e';g.lineWidth=3;for(let i=0;i<4;i++){g.beginPath();g.moveTo(0,i*h/4+8);g.lineTo(w,i*h/4+8);g.stroke();g.beginPath();g.moveTo(i*w/4+8,0);g.lineTo(i*w/4+8,h);g.stroke()}});
+wheelTex.wrapS=wheelTex.wrapT=T.RepeatWrapping;wheelTex.repeat.set(.32,.32);
+function buildWheel(o){
+  const g=group,r=o.r,r0=1.15,r1=r-.55,ha=o.gap/2;
+  box(1.1,1.1,.14,0x6b4a2c,o.x,o.y,.22,g);addOb(box(.34,.34,o.z-.16,0x6b4a2c,o.x,o.y,(o.z+.16)/2,g),'wood');
+  const rot=new T.Group();rot.position.set(o.x,o.y,o.z);g.add(rot);
+  const sh=new T.Shape();sh.absarc(0,0,r,0,Math.PI*2,false);sh.holes.push(sector(new T.Path(),r0,r1,-ha,ha));
+  const disc=new T.Mesh(new T.ExtrudeGeometry(sh,{depth:.16,bevelEnabled:false,curveSegments:56}),[new T.MeshLambertMaterial({map:wheelTex}),mat(0x8a5f3b)]);disc.position.z=-.08;disc.castShadow=true;rot.add(disc);
+  /* a bright border so the gap is easy to follow */
+  const bs=sector(new T.Shape(),r0-.2,r1+.2,-ha-.05,ha+.05);bs.holes.push(sector(new T.Path(),r0,r1,-ha,ha));
+  const bd=new T.Mesh(new T.ExtrudeGeometry(bs,{depth:.04,bevelEnabled:false,curveSegments:32}),mat(0xffc53a));bd.position.z=.08;rot.add(bd);
+  const rim=new T.Mesh(new T.TorusGeometry(r,.13,8,72),mat(0x6b4a2c));rot.add(rim);
+  const hub=new T.Mesh(new T.CylinderGeometry(.42,.48,.45,16),mat(0xb8432f));hub.rotation.x=Math.PI/2;hub.position.z=.2;rot.add(hub);
+  const cap=new T.Mesh(new T.SphereGeometry(.22,12,8),mat(0xffc53a));cap.position.z=.46;rot.add(cap);
+  wheel={x:o.x,y:o.y,z:o.z,r,r0,r1,ha,rot,gone:false,last:performance.now()};
+  movers.push(t=>{rot.rotation.z=-t*o.speed;const now=performance.now(),rd=Math.min(.05,(now-wheel.last)/1000);wheel.last=now;
+    if(won||failT>=0){wheel.gone=true;rot.position.y=Math.max(-r-1,rot.position.y-15*rd)}});
+}
+function wheelHit(b){
+  const w=wheel;if(!w||w.gone||b.ghost||b.v.z>=0)return;const t=.08+R*.6;if(b.p.z>w.z+t||b.p.z<w.z-t)return;
+  const dx=b.p.x-w.x,dy=b.p.y-w.y,r=Math.hypot(dx,dy);if(r>w.r+R*.4)return;
+  let a=Math.atan2(dy,dx)-w.rot.rotation.z;a=Math.atan2(Math.sin(a),Math.cos(a));
+  const mg=R*.45;if(r>w.r0+mg&&r<w.r1-mg&&Math.abs(a)<w.ha-mg/r)return; /* through the gap */
+  b.p.z=w.z+t+.01;b.v.z=Math.abs(b.v.z)*.35;b.v.x*=.6;b.v.y*=.6;b.live=false;b.a.set(0,-S.gravity,0);if(b.state==='fly'||b.state==='ground'){b.state='bounce';b.age=Math.min(b.age,.4)}
+  sfx.wood();addShake(.14);for(let i=0;i<14;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.92,.8,.6],2);
+}
+
+/* ---------- free-standing panes: glass at any position and turn, with a solid frame, hit-tested in their own frame (see skyHit) ---------- */
+function solidFrame(p,sg,c){const f=.2;[[p.w+f*2,f,0,p.h/2+f/2],[p.w+f*2,f,0,-p.h/2-f/2],[f,p.h,-p.w/2-f/2,0],[f,p.h,p.w/2+f/2,0]].forEach(a=>addOb(box(a[0],a[1],.34,c,a[2],a[3],.1,sg),'wood'))}
+function syncPane(p){p.sg.updateWorldMatrix(true,false);p.xf=(p.xf||new T.Matrix4()).copy(p.sg.matrixWorld);p.inv=(p.inv||new T.Matrix4()).copy(p.xf).invert();p.q=p.sg.getWorldQuaternion(p.q||new T.Quaternion());p.c=p.sg.getWorldPosition(p.c||new T.Vector3())}
+function freeStand(p,pos){const sg=new T.Group();sg.position.copy(pos);group.add(sg);p.x=0;p.y=0;solidFrame(p,sg,0xfffaf0);makePane(p,sg);p.mesh.position.z=.03;p.sg=sg;syncPane(p);return sg}
+/* The ball is used up on the glass: it knocks back and drops, so it can't also break the window behind. */
+function stopBall(b){b.live=false;b.ghost=true;b.state='passed';b.age=Math.min(b.age,1.2);b.a.set(0,-S.gravity,0);b.v.set(b.v.x*.2,2.5,-Math.sign(b.v.z||-1)*Math.abs(b.v.z)*.22)}
+
+/* ---------- stacked windows: stands with windows one behind another, lined up along the kick so each break reveals the next ---------- */
+function stackPanes(){
+  const zs=[3.6,2.1,.6],a=[];
+  [{x:-4,y:2.7,n:2},{x:0,y:3.3,n:3},{x:4,y:2.7,n:2}].forEach(s=>{for(let i=0;i<s.n;i++)a.push({x:s.x*(D-zs[i])/(D-zs[0]),y:s.y,z:zs[i],w:2.4,h:2.2,frontIdx:i?a.length-1:undefined})});
+  return a;
+}
+function buildStacks(){
+  const c=0x8a5f3b,ps=panes,ends=[];
+  ps.forEach(p=>{const x=p.x,y=p.y;p.stop=true;if(p.frontIdx!==undefined)p.front=ps[p.frontIdx];freeStand(p,new T.Vector3(x,y,p.z));
+    [-1,1].forEach(s=>box(.22,y-p.h/2,.22,c,x+s*(p.w/2+.1),(y-p.h/2)/2,p.z+.1,group));ends.push({x,z:p.z,f:p.frontIdx})});
+  /* base rails along each stack, from its front window to its back window */
+  ends.forEach((e,i)=>{if(e.f===undefined)return;const a=ends[e.f],dx=e.x-a.x,dz=e.z-a.z,len=Math.hypot(dx,dz)+1.2,ry=Math.atan2(dx,dz);
+    [-1,1].forEach(s=>{const m=box(.26,.14,len,0x704b2c,(e.x+a.x)/2+s*(ps[i].w/2+.1),.07,(e.z+a.z)/2+.1,group);m.rotation.y=ry})});
+}
+
+/* ---------- carousel: windows on a circular track, widest at the front and back of the loop, edge-on at the sides.
+   Items can be empty frames, or have a mesh on the outside with the glass facing the centre (break those on the far side,
+   through a gap). Windows can also stand still inside the circle. ---------- */
+/* metal grille: light bars with a dark outline, drawn solid (alphaTest + depth) so it sorts properly against the glass */
+const meshTex=canvasTex(64,64,(g,w,h)=>{const bars=(c,lw)=>{g.strokeStyle=c;g.lineWidth=lw;g.beginPath();for(let i=0;i<=2;i++){g.moveTo(i*32,0);g.lineTo(i*32,h);g.moveTo(0,i*32);g.lineTo(w,i*32)}g.stroke()};bars('#2b3344',9);bars('#b9c3d1',4.5)});
+meshTex.wrapS=meshTex.wrapT=T.RepeatWrapping;
+function meshMat(w,h){const t=meshTex.clone();t.needsUpdate=true;t.repeat.set(w/.42,h/.42);return new T.MeshBasicMaterial({map:t,alphaTest:.5,side:T.DoubleSide})}
+function buildCarousel(L){
+  const o=L.carousel,c=0x8a5f3b,its=[],n=o.items.length;panes=[];
+  const ring=new T.Mesh(new T.RingGeometry(o.r-.24,o.r+.24,72),mat(0x8d8577));ring.rotation.x=-Math.PI/2;ring.position.set(0,.03,o.z);ring.receiveShadow=true;group.add(ring);
+  if(!L.inner){const hub=new T.Mesh(new T.CylinderGeometry(.55,.75,.5,16),mat(0xb8432f));hub.position.set(0,.25,o.z);hub.castShadow=true;group.add(hub)}
+  o.items.forEach((d,i)=>{const p=Object.assign({},d),y=p.y;let sg;
+    if(p.empty){sg=new T.Group();sg.position.set(0,y,o.z);group.add(sg);p.x=0;p.y=0;solidFrame(p,sg,0xfffaf0)}
+    else{p.stop=true;p.moving=true;sg=freeStand(p,new T.Vector3(0,y,o.z));panes.push(p);
+      if(p.inner){addOb(box(p.w+.3,p.h+.3,.05,meshMat(p.w+.3,p.h+.3),0,0,.24,sg,false),'metal');
+        const mw=p.w+.44,mh=p.h+.44;[[mw,.14,0,mh/2],[mw,.14,0,-mh/2],[.14,mh,-mw/2,0],[.14,mh,mw/2,0]].forEach(a=>box(a[0],a[1],.1,0x7d8798,a[2],a[3],.26,sg,false))}}
+    [-1,1].forEach(s=>{box(.22,y-p.h/2,.22,c,s*(p.w/2+.1),-(y+p.h/2)/2,.1,sg);box(.24,.14,1.2,0x704b2c,s*(p.w/2+.1),-y+.07,.1,sg)});
+    its.push({p,sg,th:i/n*Math.PI*2})});
+  (L.inner||[]).forEach(d=>{const p=Object.assign({},d),x=p.x,y=p.y;p.stop=true;freeStand(p,new T.Vector3(x,y,p.z));panes.push(p);
+    [-1,1].forEach(s=>{box(.22,y-p.h/2,.22,c,x+s*(p.w/2+.1),(y-p.h/2)/2,p.z+.1,group);box(.24,.14,1.2,0x704b2c,x+s*(p.w/2+.1),.07,p.z+.1,group)})});
+  const at=t=>its.forEach(it=>{const th=it.th+t*o.speed,sn=Math.sin(th),cs=Math.cos(th),p=it.p;it.sg.position.set(o.r*sn,it.sg.position.y,o.z+o.r*cs);it.sg.rotation.y=th;
+    if(p.empty)return;p.vx=o.r*o.speed*cs;p.narrow=Math.abs(cs)<.5;p.aimOff=!!p.inner&&cs>-.5;syncPane(p)});
+  at(0);movers.push(at);
+}
+
+/* ---------- revolving door at the entrance: 4 glass wings. When the wings facing the player are broken, it turns a quarter. ---------- */
+let revolver=null;
+function buildRevolver(o){
+  const g=group,rot=new T.Group();rot.position.set(0,0,o.z);g.add(rot);
+  const cap=new T.Mesh(new T.CylinderGeometry(o.r+.2,o.r+.2,.3,32),mat(0x5f6b80));cap.position.set(0,2.75,o.z);cap.castShadow=true;g.add(cap);
+  const base=new T.Mesh(new T.CylinderGeometry(o.r+.2,o.r+.25,.08,32),mat(0x8d8577));base.position.set(0,.04,o.z);base.receiveShadow=true;g.add(base);
+  [-1,1].forEach(s=>box(.18,2.6,.18,0x5f6b80,s*(o.r+.12),1.3,o.z,g));
+  const pole=new T.Mesh(new T.CylinderGeometry(.08,.08,2.6,10),mat(0x3a3a44));pole.position.y=1.3;rot.add(pole);
+  const wings=[];
+  for(let k=0;k<4;k++){const a=k*Math.PI/2,arm=new T.Group();arm.rotation.y=a;rot.add(arm);
+    const p={w:o.r-.2,h:2.2,stop:true,moving:true,x:0,y:0},sg=new T.Group();sg.position.set(.12+p.w/2,1.32,0);arm.add(sg);
+    makeFrame(p,sg,0x5f6b80);makePane(p,sg);p.mesh.position.z=0;p.sg=sg;syncPane(p);panes.push(p);wings.push({p,a})}
+  revolver={rot,target:0,wait:-1,wings};
+  const facing=(w,r)=>Math.abs(Math.cos(w.a+r))>.9;
+  movers.push((t,dt)=>{const R2=revolver;
+    if(R2.wait<0&&!won&&wings.some(w=>!w.p.broken)&&!wings.some(w=>!w.p.broken&&facing(w,R2.target)))R2.wait=.45;
+    if(R2.wait>=0){R2.wait-=dt;if(R2.wait<0){R2.target+=Math.PI/2;sfx.whoosh()}}
+    const d=R2.target-rot.rotation.y;rot.rotation.y+=Math.sign(d)*Math.min(Math.abs(d),dt*2.6);
+    wings.forEach(w=>{syncPane(w.p);w.p.narrow=Math.abs(Math.cos(w.a+rot.rotation.y))<.5})});
+}
+
+/* ---------- awning + mesh: the upstairs window is behind a wire mesh hinged at the top of the window. A ball that lands on
+   the awning below springs up into the gap behind the mesh, glances off its inside and into the glass (a set path). ---------- */
+const awnTex=canvasTex(128,64,(g,w,h)=>{for(let i=0;i<8;i++){g.fillStyle=i%2?'#fff8e8':'#d9503f';g.fillRect(i*w/8,0,w/8,h)}});
+function buildAwning(p){
+  const g=group,top=p.y+p.h/2,bot=p.y-p.h/2,mw=p.w+.3,L=2.35,th=.36,gv=()=>S.gravity;
+  const mp=new T.Group();mp.position.set(p.x,top+.18,.26);mp.rotation.x=-th;g.add(mp);
+  addOb(box(mw,L,.05,meshMat(mw,L),0,-L/2,0,mp,false),'metal');obs[obs.length-1].skip=b=>b.meshOk===p;
+  obs[obs.length-1].hit=b=>{if(b.awn!==p||p.broken)return;const Tt=.2;b.v.set((p.x-b.p.x)/Tt,(p.y-b.p.y+.5*gv()*Tt*Tt)/Tt,(ZF-.25-b.p.z)/Tt);b.awn=null;b.awnT=0;b.meshOk=p};
+  box(mw+.1,.09,.09,0x3a3a44,0,-L,0,mp,false);[-1,1].forEach(s=>box(.09,L,.09,0x3a3a44,s*mw/2,-L/2,0,mp,false));
+  box(mw+.3,.16,.16,0x3a3a44,p.x,top+.18,.26,g);
+  /* where the sprung ball meets the inside of the mesh */
+  const s=L*.7,inY=-Math.sin(th),inZ=-Math.cos(th),aim=new T.Vector3(p.x,top+.18-s*Math.cos(th)+inY*R*.5,.26+s*Math.sin(th)+inZ*R*.5);
+  const ap=new T.Group();ap.position.set(p.x,bot-.32,.2);ap.rotation.x=.38;g.add(ap);
+  const am=new T.MeshLambertMaterial({map:awnTex});
+  /* the gap's mouth, just under the mesh's bottom edge */
+  const mouth=new T.Vector3(p.x,top+.18-L*Math.cos(th)-.3,.62);
+  addOb(box(p.w+.7,.08,1.5,am,0,0,.75,ap),'wood');obs[obs.length-1].skip=b=>b.awn===p||b.meshOk===p;
+  obs[obs.length-1].hit=b=>{if(p.broken||b.awn===p)return;const Tt=.14;b.awn=p;b.awnAim=aim;b.awnT=Tt;b.v.set((mouth.x-b.p.x)/Tt,(mouth.y-b.p.y+.5*gv()*Tt*Tt)/Tt,(mouth.z-b.p.z)/Tt);sfx.boing();p.awnT=0};
+  box(p.w+.7,.3,.04,am,0,-.15,1.5,ap,false);
+  [-1,1].forEach(s=>{const r=box(.05,.05,1.6,0x3a3a44,s*(p.w/2+.3),.5,.85,g,false);r.position.set(p.x+s*(p.w/2+.3),bot-.32-.05,.95);r.rotation.x=-.2});
+  p.awnT=9;movers.push((t,dt)=>{p.awnT+=dt;ap.rotation.x=.38+(p.awnT<.6?Math.sin(p.awnT*30)*Math.exp(-p.awnT*6)*.12:0)});
+}
+
+/* Sprung ball, second step: from the gap's mouth straight up to the inside of the mesh. */
+function awnStep(b,h){if(!b.awn||!(b.awnT>0))return;b.awnT-=h;if(b.awnT>0)return;const a=b.awnAim,Tt=.16;b.v.set((a.x-b.p.x)/Tt,(a.y-b.p.y+.5*S.gravity*Tt*Tt)/Tt,(a.z-b.p.z)/Tt)}
+/* ---------- aquarium on a stand in a pond: break a compartment and its fish drop into the pond and swim off ---------- */
+let pond=null;
+function fishMesh(col){const f=new T.Group(),b=new T.Mesh(new T.SphereGeometry(.2,10,8),mat(col));b.scale.set(1.1,.62,.42);f.add(b);
+  const tl=new T.Group();tl.position.x=-.2;f.add(tl);const c=new T.Mesh(new T.ConeGeometry(.13,.2,4),mat(col));c.rotation.z=Math.PI/2;c.position.x=-.08;tl.add(c);
+  const e=new T.Mesh(new T.SphereGeometry(.035,6,4),bmat(0x23304a));e.position.set(.12,.04,.07);f.add(e);f.userData.tail=tl;return f}
+function buildAquarium(L){
+  /* level with the house walls, compartments about house-window size: the aquarium is the variety, not tight aim */
+  const g=group,cx=0,cz=0,rx=7.6,rz=3.9,yb=1.2,cw=2.2,ch=1.6,gp=.22,fz=cz+.62,TW=3*cw+2*gp+.7;
+  const wt=waterTex.clone();wt.needsUpdate=true;wt.repeat.set(5,2.6);
+  const water=new T.Mesh(new T.CircleGeometry(1,56),new T.MeshLambertMaterial({map:wt}));water.scale.set(rx,rz,1);water.rotation.x=-Math.PI/2;water.position.set(cx,.025,cz);water.receiveShadow=true;g.add(water);
+  const rim=new T.Mesh(new T.RingGeometry(1,1.05,56),mat(0xbfb3a0));rim.scale.set(rx,rz,1);rim.rotation.x=-Math.PI/2;rim.position.set(cx,.035,cz);g.add(rim);
+  addOb(box(3.2,yb,1.4,0xbfb3a0,cx,yb/2,cz,g),'wall');
+  /* the tank: back, sides, sand, lid; one solid body behind the glass */
+  const top=yb+.15+2*ch+gp+.6;
+  box(TW,top-yb,.1,0x2f7fb0,cx,(top+yb)/2,cz-.62,g);[-1,1].forEach(s=>box(.14,top-yb,1.3,0x23304a,cx+s*(TW/2-.05),(top+yb)/2,cz,g));
+  box(TW,.15,1.3,0xe8d29a,cx,yb+.08,cz,g);box(TW+.2,.22,1.5,0x23304a,cx,top+.1,cz,g);
+  const body=box(TW-.2,top-yb,1.15,0x2f7fb0,cx,(top+yb)/2,cz-.06,g,false);body.visible=false;addOb(body,'wall');
+  for(let i=0;i<10;i++){const wd=box(.09,rnd(.6,1.4),.09,0x3f8f3e,cx+rnd(-TW/2+.4,TW/2-.4),yb+.6,cz-.45,g,false);wd.rotation.z=rnd(-.2,.2)}
+  pond={cx,cz,rx,rz,fish:[]};
+  const cols=[0xff8a1f,0xffc53a,0xf35f7d];
+  for(let r=0;r<2;r++)for(let k=0;k<3;k++){const p={x:cx+(k-1)*(cw+gp),y:yb+.25+ch/2+r*(ch+gp),w:cw,h:ch,stop:true},x=p.x,y=p.y;
+    freeStand(p,new T.Vector3(x,y,fz));panes.push(p);
+    const wm=new T.Mesh(new T.BoxGeometry(cw+.1,ch+.1,1.1),new T.MeshBasicMaterial({color:0x53bdf0,transparent:true,opacity:.42,depthWrite:false}));wm.position.set(x,y,cz-.02);g.add(wm);p.water=wm;
+    p.fishes=[0,1].map(j=>{const f=fishMesh(cols[(r*3+k+j)%3]);f.scale.setScalar(1.3);f.position.set(x+rnd(-.5,.5),y+rnd(-.35,.35),cz+rnd(-.2,.3));g.add(f);return{f,ph:rnd(0,6),x0:x,state:'tank'}})}
+  movers.push((t,dt)=>{wt.offset.set(t*.012,t*.006);
+    panes.forEach(p=>{
+      if(p.broken&&!p.spilled){p.spilled=true;p.drain=0;for(let i=0;i<70;i++)spark.emit(p.x,p.y,fz,rnd(-3,3),rnd(-1,4),rnd(1,5),rnd(.4,.9),[.3,.65,1],12);sfx.splash();
+        p.fishes.forEach(o=>{o.state='fall';o.v=new T.Vector3(rnd(-1.4,1.4),rnd(1,2.6),rnd(.8,2))})}
+      if(p.drain!==undefined&&p.drain<1){p.drain=Math.min(1,p.drain+dt*2.2);p.water.scale.y=Math.max(.001,1-p.drain);p.water.position.y=p.y-(ch+.1)/2*p.drain}
+      p.fishes.forEach(o=>{const f=o.f;
+        if(o.state==='tank'){f.position.x=o.x0+Math.sin(t*.9+o.ph)*.62;f.rotation.y=Math.cos(t*.9+o.ph)>0?0:Math.PI;f.userData.tail.rotation.y=Math.sin(t*10+o.ph)*.4}
+        else if(o.state==='fall'){o.v.y-=16*dt;f.position.addScaledVector(o.v,dt);f.rotation.z+=dt*8;
+          if(f.position.y<=.08){f.position.y=.06;f.rotation.z=0;
+            let a=Math.atan2((f.position.z-cz)/rz,(f.position.x-cx)/rx),q=Math.hypot((f.position.x-cx)/rx,(f.position.z-cz)/rz);
+            o.a=a;o.q=clamp(q,.45,.85);o.sp=(Math.random()<.5?-1:1)*rnd(.35,.6);o.state='swim';
+            for(let i=0;i<10;i++)spark.emit(f.position.x,.1,f.position.z,rnd(-1.5,1.5),rnd(1,3),rnd(-1.5,1.5),rnd(.3,.6),[.75,.9,1],10)}}
+        else{o.a+=o.sp*dt;const x=cx+Math.cos(o.a)*rx*o.q,z=cz+Math.sin(o.a)*rz*o.q;f.position.x=lerp(f.position.x,x,Math.min(1,dt*3));f.position.z=lerp(f.position.z,z,Math.min(1,dt*3));
+          f.rotation.y=-Math.atan2(Math.cos(o.a)*rz*o.sp,-Math.sin(o.a)*rx*o.sp);f.userData.tail.rotation.y=Math.sin(t*12+o.ph)*.5}})})});
+}
+/* A ball that comes down in the pond sinks. */
+function pondTouch(b){if(b.sunk)return true;const a=(b.p.x-pond.cx)/pond.rx,c=(b.p.z-pond.cz)/pond.rz;if(a*a+c*c>1)return false;sinkBall(b);return true}
+
+/* ---------- from behind: panels with glass on one side and wood on the other. They turn their wood to the player at the start.
+   High on the wall behind each panel is a glass window; break it and a trampoline springs out, tilted slightly down.
+   A ball that hits the trampoline comes back and breaks the panel's glass from behind. All 6 panes count. ---------- */
+let behind=null,behindSeen=-1;
+function buildBehind(L){
+  const g=group,wins=panes.slice(),t=brickTex.clone();t.needsUpdate=true;t.repeat.set(10,8);
+  addOb(box(20,8,.5,new T.MeshLambertMaterial({map:t}),0,4,-.25,g),'wall');box(20.3,.2,.7,0xbfb3a0,0,8.1,-.25,g);
+  const first=behindSeen!==level;behindSeen=level;
+  behind={t:0,hold:first?.7:.2,turn:first?1:.5,done:false,reb:[]};
+  const ry=5.3,gw=2.6,gh=2.1,tilt=.3;
+  wins.forEach(p=>{const x=p.x,y=p.y,z=3.8;p.stop=true;p.oneWay=true;p.moving=true;const sg=freeStand(p,new T.Vector3(x,y,z));
+    /* the backing: pale behind the glass, wood on the side that turns to the player */
+    p.backing=new T.MeshLambertMaterial({color:0xcfe8f8});const wood=mat(0xb07a46);
+    addOb(box(p.w+.4,p.h+.4,.1,[wood,wood,wood,wood,p.backing,wood],0,0,-.14,sg),'wood');
+    [-.5,.05,.55].forEach(k=>box(p.w+.4,.05,.02,0x8a5f3b,0,k,-.2,sg,false));
+    const ph=y-p.h/2-.2;box(.3,ph,.3,0x8a5f3b,x,ph/2,z,g);box(1.6,.14,1.6,0x704b2c,x,.07,z,g);
+    /* the wall window: a dark recess with glass in front */
+    const dk=new T.Mesh(new T.PlaneGeometry(gw,gh),bmat(0x2b2230));dk.position.set(x,ry,.01);g.add(dk);
+    const q={w:gw,h:gh,stop:true,slot:true};freePane(q,new T.Vector3(x,ry,.62),0,0xfffaf0);panes.push(q);
+    box(gw+.7,.18,.5,0xbfb3a0,x,ry-gh/2-.29,.3,g); /* sill */
+    /* the trampoline, hidden until its glass breaks: red rim, dark mat, springs, tilted to face down at the panel */
+    const tg=new T.Group();tg.position.set(x,ry,.3);tg.rotation.x=tilt;tg.scale.setScalar(.001);tg.visible=false;g.add(tg);
+    const tw=gw-.3,th=gh-.3;
+    [[tw+.24,.16,0,th/2+.08],[tw+.24,.16,0,-th/2-.08],[.16,th,-tw/2-.08,0],[.16,th,tw/2+.08,0]].forEach(a=>box(a[0],a[1],.14,0xd9503f,a[2],a[3],0,tg,false));
+    const pad=box(tw-.3,th-.3,.06,0x3b8fe0,0,0,.02,tg,false);box(tw-.9,.08,.07,0xffffff,0,0,.03,tg,false);box(.08,th-.9,.07,0xffffff,0,0,.03,tg,false); /* blue mat with a white cross */
+    const solid=box(tw,th,.16,0x23304a,0,0,0,tg,false);solid.visible=false;addOb(solid,'tramp');
+    obs[obs.length-1].hit=b=>{if(p.broken||!q.broken)return;const Tt=.62,gv=S.gravity,c=p.c;b.rebound=true;b.v.set((c.x-b.p.x)/Tt,(c.y-b.p.y+.5*gv*Tt*Tt)/Tt,(c.z-b.p.z)/Tt);
+      tg.userData.wob=0;for(let i=0;i<30;i++)spark.emit(b.p.x,b.p.y,b.p.z,rnd(-4,4),rnd(-4,4),rnd(0,5),rnd(.2,.5),[1,.85,.3],6)};
+    tg.userData.pad=pad;
+    behind.reb.push({x,y:ry,w:gw,h:gh,p,q,tg})});
+  movers.push((t,dt)=>{const B=behind;
+    if(!B.done){B.t+=dt;const k=clamp((B.t-B.hold)/B.turn,0,1),e=k*k*(3-2*k);if(k>0&&!B.turning){B.turning=true;sfx.whoosh()}wins.forEach(p=>p.sg.rotation.y=Math.PI*e);if(k>=1){B.done=true;wins.forEach(syncPane);spawnBall()}}
+    /* a broken panel turns back to show its empty frame */
+    wins.forEach(p=>{if(!p.broken)return;p.backT=(p.backT||0)+dt;const k=clamp((p.backT-.4)/.45,0,1),e=k*k*(3-2*k);p.sg.rotation.y=Math.PI*(1-e);if(k>0)p.backing.color.setHex(0x3a4152)});
+    /* trampolines spring out once their glass is gone, and wobble when hit */
+    B.reb.forEach(r=>{const u=r.tg.userData;if(!r.q.broken)return;
+      if(u.t===undefined){u.t=0;r.tg.visible=true;sfx.boing()}
+      u.t+=dt;const k=clamp((u.t-.25)/.45,0,1),s=k<=0?.001:1+Math.sin(k*Math.PI*2.5)*(1-k)*.35;r.tg.scale.set(s,s,1);
+      if(u.wob!==undefined){u.wob+=dt;u.pad.position.z=.02-Math.sin(u.wob*30)*Math.exp(-u.wob*7)*.25}})});
 }
 
 /* ---------- gantry: a beam on two poles that hanging rail windows ride along ---------- */
@@ -248,20 +467,23 @@ function buildCat(L){
   [-.1,.08].forEach(y=>box(.5,.05,.05,0xc9762a,0,.52+y,-.3,c,false));
   const hd=new T.Group();hd.position.set(0,.92,.05);c.add(hd);
   sp(.3,O,0,0,0,1.1,.95,1,hd);sp(.12,0xfff3e0,0,-.1,.23,1.3,.8,.8,hd);
-  [-1,1].forEach(s=>{const e=new T.Mesh(new T.ConeGeometry(.11,.24,4),mat(O));e.position.set(s*.17,.27,0);e.rotation.z=-s*.28;hd.add(e);
+  const ears=[];
+  [-1,1].forEach(s=>{const e=new T.Mesh(new T.ConeGeometry(.11,.24,4),mat(O));e.position.set(s*.17,.27,0);e.rotation.z=-s*.28;hd.add(e);ears.push({e,s});
     const ey=new T.Mesh(new T.SphereGeometry(.055,8,6),bmat(0x23304a));ey.position.set(s*.11,.04,.27);hd.add(ey);
     [-1,1].forEach(k=>{const w=box(.3,.014,.014,0x23304a,s*.27,-.08+k*.035,.22,hd,false);w.rotation.z=s*k*.18})});
   sp(.045,0xff8fa8,0,-.03,.31,1,1,1,hd);
   const paw=new T.Group();paw.position.set(-.3,.55,.1);c.add(paw);sp(.1,0xfff3e0,0,-.3,0,1,1.6,1,paw);paw.rotation.z=-2.6;
   const tail=new T.Group();tail.position.set(.3,.12,-.2);c.add(tail);box(.1,.8,.1,O,0,.4,0,tail,false);
-  catS={g:c,hd,tail,paw,pane:null,roof:false,used:-1,anim:0,from:null,to:null,swatT:9,
+  catS={g:c,hd,tail,paw,ears,pane:null,roof:false,used:-1,anim:0,from:null,to:null,swatT:9,
     roofAt:new T.Vector3(4,L.H+3.04,-3)};
   const open=panes.filter(p=>!p.xf);catSit(open[(Math.random()*open.length)|0]);catS.used=used;
   movers.push((t,dt)=>{const k=catS;
     k.hd.rotation.y=Math.sin(t*.8)*.45;k.hd.rotation.z=Math.sin(t*.5)*.08;k.tail.rotation.z=-.45+Math.sin(t*2.6)*.35;
     k.swatT+=dt;const sw=k.swatT<.35?Math.sin(k.swatT/.35*Math.PI):0;k.paw.rotation.z=-2.6+sw*1.9;k.paw.rotation.x=-sw*.9;
+    /* after a swat: ears flatten */
+    const fl=clamp(1-(k.swatT-.7)/.2,0,1);k.ears.forEach(a=>a.e.rotation.z=-a.s*(.28+fl*1.05));
     /* a kick has happened and is over: move on */
-    if(k.used!==used&&!k.anim&&k.swatT>.6&&!won&&!balls.some(b=>b.state==='fly'))catNext();
+    if(k.used!==used&&!k.anim&&k.swatT>.95&&!won&&!balls.some(b=>b.state==='fly'))catNext();
     if(k.anim){k.anim+=dt;const a=k.anim;
       if(a<.2){const e=a/.2;k.g.scale.setScalar(1.35*(1-e));k.g.position.y=k.from.y-e*.4}
       else{if(!k.placed){k.placed=true;catSit(k.to)}
@@ -279,7 +501,7 @@ function catNext(){
   const open=panes.filter(p=>!p.broken&&!p.xf);if(!open.length)return;
   const others=open.filter(p=>p!==k.pane);
   k.from=k.g.position.clone();k.to=open.length===1?null:others[(Math.random()*others.length)|0]; /* null = the chimney */
-  k.placed=false;k.anim=1e-4;k.pane=null;sfx.meow(); /* nothing is blocked while it hops */
+  k.placed=false;k.anim=1e-4;k.pane=null; /* nothing is blocked while it hops */
 }
 /* The ball reaches the cat's window: the cat swats it back out. */
 function catHit(b){
@@ -287,17 +509,18 @@ function catHit(b){
   const zf=k.base.z+.75;if(b.p.z>zf||b.p.z<ZF||Math.abs(b.p.x-p.x)>p.w/2+R*.6||b.p.y>p.y+p.h/2+R*.6||b.p.y<p.y-p.h/2-.3)return;
   b.p.z=zf;b.live=false;b.state='bounce';b.age=Math.min(b.age,.4);b.a.set(0,-S.gravity,0);
   b.v.set(b.v.x*.4+(b.p.x<p.x?-2:2),Math.max(2.5,b.v.y*.3),Math.abs(b.v.z)*.35+2);
-  k.swatT=0;sfx.meow();addShake(.18);pop('SWAT!',p.x,p.y+.4,.8,true);
+  k.swatT=0;sfx.mrrp();addShake(.18);
   for(let i=0;i<18;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.95,.62,.25],2);
 }
 
-/* ---------- island hop: kick onto the middle island, the view flies there, then kick at the house.
+/* ---------- island hop, in two steps: break the glass frames on the near island; each frame clears away with its glass;
+   once they're all gone, input pauses and the view flies to that island, then kick at the house on the far one.
    Built in final (stage 2) coordinates; during stage 1 the whole level group sits hop.S further back. ---------- */
 const waterTex=canvasTex(128,128,(g,w,h)=>{g.fillStyle='#3aa6d8';g.fillRect(0,0,w,h);g.strokeStyle='rgba(255,255,255,.3)';g.lineWidth=3;g.lineCap='round';
   for(let i=0;i<9;i++){const x=Math.random()*w,y=Math.random()*h;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+10,y-6,x+22,y);g.stroke()}});
 waterTex.wrapS=waterTex.wrapT=T.RepeatWrapping;waterTex.repeat.set(70,70);
 let hop=null;
-const hopBusy=()=>!!hop&&hop.stage>1&&hop.stage<2;
+const hopBusy=()=>(!!hop&&hop.stage>1&&hop.stage<2)||(!!behind&&!behind.done); /* input is paused during the flight and the From Behind intro */
 function palm(x,z,s,par){
   const g=new T.Group();g.position.set(x,0,z);g.scale.setScalar(s);g.rotation.y=rnd(0,6);par.add(g);
   for(let i=0;i<6;i++){const m=new T.Mesh(new T.CylinderGeometry(.17-i*.012,.2-i*.012,.7,8),mat(i%2?0x9a6b43:0x8a5f3b));m.position.set(i*i*.025,.35+i*.66,0);m.rotation.z=-i*.05;m.castShadow=true;g.add(m)}
@@ -310,21 +533,24 @@ function buildIslands(L){
   const isl=[{x:0,z:D+S2,r:3.6,s:3.6},{x:0,z:D,r:4.6,s:4.6},{x:0,z:-3,r:11,s:6.5}],cg=new T.CylinderGeometry(1,1.15,1,40);
   isl.forEach(i=>{const sd=new T.Mesh(cg,mat(0xf0d9a0));sd.scale.set(i.r+.6,.6,i.s+.6);sd.position.set(i.x,-.295,i.z);sd.receiveShadow=true;g.add(sd);
     const gr=new T.Mesh(cg,mat(0x62ac47));gr.scale.set(i.r,.6,i.s);gr.position.set(i.x,-.29,i.z);gr.receiveShadow=true;g.add(gr)});
-  /* landing target on the middle island, with a flag to aim at */
-  const pad=new T.Group();pad.position.set(0,0,D);g.add(pad);
-  [[2.1,2.4,0xffc53a],[1.3,1.6,0xfff8e8]].forEach(a=>{const r=new T.Mesh(new T.RingGeometry(a[0],a[1],40),bmat(a[2]));r.rotation.x=-Math.PI/2;r.position.y=.04;pad.add(r)});
-  box(.12,4.2,.12,0xfffaf0,2.9,2.1,-1.2,pad);const fl=box(1.2,.75,.04,0xffc53a,3.5,3.75,-1.2,pad,false);
+  /* the near island's glass frames, built so they stand on the wall plane (world z 0) during step one */
+  const first=(L.first||[]).map(p=>Object.assign({},p));
+  first.forEach(p=>{const sg=new T.Group();sg.position.set(p.x,0,S2);g.add(sg);const x=p.x;p.x=0;makeFrame(p,sg,0xfffaf0);makePane(p,sg);p.x=x;standLegs(p,sg);p.sg=sg;p.clearT=0});
   palm(-9,-1,1.1,g);palm(9.2,-2.5,1.25,g);palm(-7,-7,1,g);palm(-3.3,D-2.4,.8,g);palm(4.2,D-1.8,.7,g);palm(-3.4,D+S2-1.8,.7,g);
-  hop={stage:1,S:S2,isl,t:0,pad};g.position.z=-S2;
+  hop={stage:1,S:S2,isl,t:0,first,house:null};g.position.z=-S2;
   movers.push((t,dt)=>{
-    waterTex.offset.set(t*.01,t*.004);fl.rotation.y=Math.sin(t*3)*.25;
-    if(hop.stage===1.4){hop.t+=dt;if(hop.t<.45)return;
+    waterTex.offset.set(t*.01,t*.004);
+    /* a frame whose glass is gone tips over backwards and clears away, so the island is free to stand on */
+    first.forEach(p=>{if(!p.broken||!p.sg.visible)return;p.clearT+=dt;const k=clamp((p.clearT-.5)/.4,0,1);if(k<=0)return;
+      if(!p.cleared){p.cleared=true;shards.forEach(s=>{if(s.pane===p&&s.delay>0)s.delay=.001});for(let i=0;i<22;i++)dust.emit(p.x+rnd(-1,1),.2,rnd(-.8,.2),rnd(-2,2),rnd(.4,2.4),rnd(-2,1),rnd(.3,.6),[.92,.8,.6],3);sfx.wood()}
+      p.sg.rotation.x=-k*k*1.45;p.sg.scale.setScalar(Math.max(.001,1-Math.max(0,k-.6)/.4));if(k>=1)p.sg.visible=false});
+    if(hop.stage===1.4){hop.t+=dt;if(hop.t<1.05)return;
       balls.forEach(removeBallMesh);balls.length=0;if(cur){removeBallMesh(cur);cur=null}
       hop.stage=1.5;hop.t=0;spot.visible=false;sfx.whoosh()}
     if(hop.stage!==1.5)return;
     hop.t+=dt;const k=clamp(hop.t/1.5,0,1),e=k<.5?2*k*k:1-Math.pow(2-2*k,2)/2;
-    g.position.z=-S2*(1-e);camOff.y=Math.sin(Math.PI*k)*2.4;
-    if(k>=1){hop.stage=2;camOff.y=0;pad.visible=false;spot.visible=true;spawnBall()}
+    const nz=-S2*(1-e),dz=nz-g.position.z;g.position.z=nz;camOff.y=Math.sin(Math.PI*k)*2.4;shards.forEach(s=>{s.m.position.z+=dz;s.m.scale.setScalar(Math.max(.001,1-k))}); /* the broken glass rides along and shrinks away, leaving the island clear */
+    if(k>=1){shards.forEach(s=>{scene.remove(s.m);s.m.geometry.dispose()});shards.length=0;hop.stage=2;panes=hop.house;camOff.y=0;spot.visible=true;spawnBall()}
   });
 }
 /* Which island is under (x,z)? -1 means water. */
@@ -333,19 +559,23 @@ function isleAt(x,z){const gz=group.position.z;return hop.isl.findIndex(i=>{cons
 function isleTouch(b){
   if(b.sunk)return true;
   const i=isleAt(b.p.x,b.p.z);
-  if(i<0){b.sunk=true;b.live=false;b.state='sunk';b.age=Math.max(b.age,1.3);b.v.set(b.v.x*.1,-.9,b.v.z*.1);b.a.set(0,-1.2,0);
-    for(let k=0;k<44;k++)dust.emit(b.p.x,0,b.p.z,rnd(-2.6,2.6),rnd(2,6.5),rnd(-2.6,2.6),rnd(.4,.8),[.85,.95,1],13);sfx.splash();return true}
-  if(i===1&&hop.stage===1){hop.stage=1.4;hop.t=0}
+  if(i<0){sinkBall(b);return true}
   return false;
 }
+function sinkBall(b){b.sunk=true;b.live=false;b.state='sunk';b.age=Math.max(b.age,1.3);b.v.set(b.v.x*.1,-.9,b.v.z*.1);b.a.set(0,-1.2,0);
+  for(let k=0;k<44;k++)dust.emit(b.p.x,0,b.p.z,rnd(-2.6,2.6),rnd(2,6.5),rnd(-2.6,2.6),rnd(.4,.8),[.85,.95,1],13);sfx.splash()}
+/* All the near island's glass is broken: pause input and start the flight (the mover above runs it). */
+function hopStart(){hop.stage=1.4;hop.t=0;if(drag){drag=null;hidePreview()}if(cur){removeBallMesh(cur);cur=null}}
 
 /* ---------- aim help targets: open windows, plus the switch while it is still up ---------- */
 let sw=null,pads=[];
 function aimTargets(){
   const a=[];
-  panes.forEach(p=>{if(p.broken||p.sky||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
+  panes.forEach(p=>{if(p.broken||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
   if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
+  panes.forEach(p=>{if(p.awn&&!p.broken)a.push({x:p.x,y:p.y-p.h/2-.8,z:1,w:p.w+.7,h:.9,vx:0})}); /* awnings: aim at the awning, not the meshed glass */
+  if(behind)behind.reb.forEach(r=>{if(!r.p.broken&&r.q.broken)a.push({x:r.x,y:r.y,z:.4,w:r.w,h:r.h,vx:0})}); /* an open trampoline */
   return a;
 }
 
@@ -434,13 +664,10 @@ function buildNight(L){
   const pool=new T.Mesh(new T.PlaneGeometry(5.6,4.6),new T.MeshBasicMaterial({map:poolTex,transparent:true,depthWrite:false,blending:T.AdditiveBlending}));pool.position.z=.3;pool.renderOrder=6;g.add(pool);
   const sl=new T.SpotLight(0xfff2c0,2.6,70,.24,1,1);sl.position.set(lx,lh,lz);g.add(sl);g.add(sl.target);
   const kl=new T.PointLight(0xffd9a0,.9,11);kl.position.set(0,3.2,D+1);g.add(kl);
-  /* a patch of wall in front of each window (frame and sill included), lit like the wall, so an unlit window can't be seen.
-     It fades out while the beam is on that window; its texture lines up with the wall's bricks. */
-  const wt=g.userData.wallTex,wm=g.userData.wall;wm.material[0]=new T.MeshPhongMaterial({map:wt,specular:0x000000,shininess:0}); /* per-pixel, so the wall and the covers light the same */
-  panes.forEach(p=>{if(p.xf)return;const cw=p.w+.75,ch=p.h+1.05,cy=p.y-.2,t=wt.clone();t.needsUpdate=true;
-    t.repeat.set(cw*wt.repeat.x,ch*wt.repeat.y);t.offset.set((p.x-cw/2)*wt.repeat.x,(cy-ch/2)*wt.repeat.y);
-    const cv=new T.Mesh(new T.PlaneGeometry(cw,ch),new T.MeshPhongMaterial({map:t,specular:0x000000,shininess:0,transparent:true,depthWrite:false}));cv.position.set(p.x,cy,.64);cv.renderOrder=5;cv.receiveShadow=true;g.add(cv);
-    p.cover=cv});
+  /* lights off: an unlit room is dark behind its glass and the glass dims; the frame stays faintly visible.
+     Nothing sits in front of the window, so nothing looks like it should stop the ball. */
+  panes.forEach(p=>{if(p.xf)return;p.mesh.material=glassMat.clone();
+    const dk=new T.Mesh(new T.PlaneGeometry(p.w,p.h),new T.MeshBasicMaterial({color:0x05070f,transparent:true,opacity:.9,depthWrite:false}));dk.position.set(p.x,p.y,-.03);dk.renderOrder=2;g.add(dk);p.dark=dk});
   const A=new T.Vector3(lx,lh,lz),B=new T.Vector3(),dir=new T.Vector3(),side=new T.Vector3(),view=new T.Vector3();
   movers.push(t=>{
     const u=beamAt(t),on=u!==null,I=on?clamp(Math.min(u,1-u)/.07,0,1):0,bx=on?lerp(NIGHT.x0,NIGHT.x1,u):-99;
@@ -450,7 +677,7 @@ function buildNight(L){
       const w0=.32,w1=2.5;[[A,-w0],[A,w0],[B,-w1],[B,w1]].forEach((q,i)=>{bp[i*3]=q[0].x+side.x*q[1];bp[i*3+1]=q[0].y+side.y*q[1];bp[i*3+2]=q[0].z+side.z*q[1]});
       bg.attributes.position.needsUpdate=true;beam.material.opacity=.55*I;
       pool.position.x=bx;pool.position.y=NIGHT.y;pool.material.opacity=.42*I}
-    panes.forEach(p=>{if(!p.cover)return;const lit=I*Math.exp(-Math.pow((p.x-bx)/2.2,2));p.cover.material.opacity=p.broken?0:1-lit;p.cover.visible=p.cover.material.opacity>.002});
+    panes.forEach(p=>{if(!p.dark)return;const lit=p.broken?1:I*Math.exp(-Math.pow((p.x-bx)/2.8,2));p.dark.material.opacity=.9*(1-lit);p.dark.visible=lit<.995;p.mesh.material.color.setScalar(.18+.82*lit)});
   });
 }
 /* A new 4-window layout on every attempt (two rows; rooms behind windows must not overlap). */
@@ -463,5 +690,5 @@ function nightLayout(){
     key=pick.map(q=>q.x+','+q.y).sort().join('|');if(pick.length===4&&key!==nightKey)break}
   nightKey=key;
   const props=[['fish',0xcfe0f0],['cake',0xffd7c8],['vase',0xe3d6f2],['tv',0xd9efc6]].sort(()=>Math.random()-.5);
-  return pick.map((q,i)=>({x:q.x,y:q.y,w:1.8,h:1.9,prop:props[i][0],wall:props[i][1]}));
+  return pick.map((q,i)=>({x:q.x,y:q.y,w:2.1,h:2,prop:props[i][0],wall:props[i][1]}));
 }

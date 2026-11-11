@@ -40,8 +40,9 @@ function shatter(p,hx,hy,ballSpeed){
     const m=new T.Mesh(new T.ShapeGeometry(sh),shardMats[(Math.random()*3)|0]);m.position.set(p.x+cx,p.y+cy,0);m.renderOrder=4;scene.add(m);
     const dx=cx-lx,dy=cy-ly,d=Math.hypot(dx,dy)||.01,n=clamp(d/maxR,0,1),out=!p.xf&&Math.random()<.42,rad=rnd(1,5.5)*(1.3-n);
     const v=new T.Vector3(dx/d*rad,dy/d*rad+rnd(0,2.5),out?rnd(2.5,10):-ballSpeed*rnd(.12,.38)*(1.1-n));
+    if(p.oneWay)v.z=-v.z; /* hit from its glass side: the pieces fly away from the wood */
     if(p.xf){m.position.applyMatrix4(p.xf);m.quaternion.copy(p.q);v.applyQuaternion(p.q)} /* skylight: pane-local to world */
-    const stuck=edge&&Math.random()<.38;
+    const stuck=edge&&Math.random()<.38&&!p.moving;
     shards.push({m,v,w:new T.Vector3(rnd(-16,16),rnd(-16,16),rnd(-16,16)),delay:stuck?rnd(.45,2.3):n*.14+rnd(0,.05),stuck,pane:p,px:p.x,rest:false,age:0,floor:out?.04:(p.room?p.room.floor+.04:.04)});
   };
   for(let i=0;i<rays;i++)for(let k=0;k<rs.length-1;k++){
@@ -55,17 +56,28 @@ function ringAt(p){
   m.position.copy(p);scene.add(m);fxObjs.push({m,t:0,d:.32});
 }
 const fxObjs=[];
+/* Confetti on the 2D layer over the game, fired from both bottom corners. */
+const confetti=[],CONF=['#ffc53a','#d9503f','#4fbf5a','#47c3ff','#fff8e8','#f35f7d'];let confOn=false;
+function burstConfetti(){for(let i=0;i<150;i++){const l=i%2===0;confetti.push({x:l?-10:W_+10,y:H_*.85,vx:(l?1:-1)*rnd(180,W_*.9+200),vy:-rnd(500,H_*1.25+260),r:rnd(0,6),w:rnd(-12,12),s:rnd(7,14),c:CONF[i%6],t:0,d:rnd(1.5,2.5)})}}
+function stepConfetti(dt){
+  if(!confetti.length&&!confOn)return;fctx.clearRect(0,0,W_,H_);
+  for(let i=confetti.length-1;i>=0;i--){const c=confetti[i];c.t+=dt;c.vy+=1050*dt;c.vx*=1-1.1*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.r+=c.w*dt;if(c.t>c.d||c.y>H_+30){confetti.splice(i,1);continue}
+    fctx.save();fctx.translate(c.x,c.y);fctx.rotate(c.r);fctx.globalAlpha=Math.min(1,(c.d-c.t)*3);fctx.fillStyle=c.c;fctx.fillRect(-c.s/2,-c.s*.3,c.s,c.s*.6*Math.abs(Math.cos(c.r*1.7))+1);fctx.restore()}
+  confOn=confetti.length>0;
+}
 /* lh: hit point in the pane's own frame (skylight); wall panes use the ball position. */
 function smash(p,b,lh){
   p.broken=true;p.mesh.visible=false;(p.extra||[]).forEach(m=>m.visible=false);
+  const last=!sandbox&&!(hop&&hop.stage<2)&&panes.every(q=>q.broken); /* this hit wins the level */
   const speed=b.v.length(),src=lh||b.p,hx=clamp(src.x,p.x-p.w/2+.05,p.x+p.w/2-.05),hy=clamp(src.y,p.y-p.h/2+.05,p.y+p.h/2-.05);
   shatter(p,hx,hy,Math.max(speed,26));
   const w=p.xf?new T.Vector3(hx,hy,.1).applyMatrix4(p.xf):new T.Vector3(hx,hy,.15);
   for(let i=0;i<90;i++)spark.emit(w.x,w.y,w.z,rnd(-7,7),rnd(-5,8),rnd(-5,8),rnd(.2,.75),[.85,.95,1],8);
   ringAt(new T.Vector3(w.x,w.y,p.xf?w.z+.3:.3));
-  freezeT=S.freeze/1000;slowT=.26;addShake(.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
-  sfx.glass();
+  freezeT=S.freeze/1000;slowT=.26;addShake(last?1:.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
+  sfx.glass();if(last)sfx.boom();
   if(p.sky){b.live=false;b.ghost=true;b.state='passed';b.age=0;b.a.set(0,-S.gravity,0);b.v.multiplyScalar(.4)}
+  else if(p.stop)stopBall(b);
   else if(p.room){const dir=p.room.target.clone().sub(b.p).normalize();b.v.copy(dir).multiplyScalar(Math.max(13,speed*.6));b.a.set(0,0,0);b.state='inside';b.pane=p;inBalls++}
   else{b.v.multiplyScalar(.72);b.a.x=0;b.state='passed'}
   checkWin();

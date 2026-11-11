@@ -22,7 +22,7 @@ function showPreview(s){
 }
 const hidePreview=()=>prevDots.forEach(m=>m.visible=false);
 function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()}}
-canvas.addEventListener('pointerdown',e=>{initAudio();$('panel').hidden=true;if(S.mode==='live'){liveDown(e);return}if(!cur||won||cur.born<.12)return;try{canvas.setPointerCapture(e.pointerId)}catch(x){}drag={pts:[point(e)],id:e.pointerId}});
+canvas.addEventListener('pointerdown',e=>{initAudio();$('panel').hidden=true;if(won){if(performance.now()-winAt>350)advance();return}if(S.mode==='live'){liveDown(e);return}if(!cur||won||cur.born<.12)return;try{canvas.setPointerCapture(e.pointerId)}catch(x){}drag={pts:[point(e)],id:e.pointerId}});
 canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){liveMove(e);return}drag.pts.push(point(e));if(drag.pts.length>120)drag.pts.splice(1,1);const s=shotFrom(drag);if(s.len>18)showPreview(s);else hidePreview()});
 function release(e){if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){drag=null;return}const d=drag;drag=null;hidePreview();const s=shotFrom(d);if(s.len<30||!cur)return;kick(s)}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',()=>{drag=null;hidePreview()});
@@ -30,7 +30,7 @@ canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercan
 function ballPx(){const s=toScreen(0,R,D),t=toScreen(0,R*2,D);return{x:s[0],y:s[1],r:Math.max(10,Math.abs(s[1]-t[1]))}}
 function segDist(a,b,c){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy||1,t=clamp(((c.x-a.x)*dx+(c.y-a.y)*dy)/l,0,1);return Math.hypot(a.x+dx*t-c.x,a.y+dy*t-c.y)}
 function liveDown(e){
-  if(won)return;const pt=point(e),f=balls.find(b=>b.live&&b.state==='fly');
+  if(won||hopBusy())return;const pt=point(e),f=balls.find(b=>b.live&&b.state==='fly');
   if(!f&&(!cur||cur.born<.12))return;
   try{canvas.setPointerCapture(e.pointerId)}catch(x){}
   if(f){drag={id:e.pointerId,pts:[pt],last:pt,top:pt.y,steer:f};return}
@@ -89,8 +89,8 @@ function ceilingY(b){
 function flyLive(b,dt){
   const v=b.v,sp=v.length(),c=.004,g=S.gravity;
   /* Aim help: predict where the arc meets each window's plane (moving windows are led by their speed)
-     and nudge toward the nearest one. Off during the island hop's first kick. */
-  if(S.snap>0&&!(hop&&hop.stage<2)&&b.p.z<D*.6&&v.z<-.5&&b.p.y>R+.02){
+     and nudge toward the nearest one. */
+  if(S.snap>0&&b.p.z<D*.6&&v.z<-.5&&b.p.y>R+.02){
     let best=null,bd=1e9,bt=0,bx=0,by=0;
     aimTargets().forEach(p=>{const tr=(b.p.z-p.z)/-v.z;if(tr<.02)return;
       const py=b.p.y+b.vn*tr-.5*g*tr*tr,px=b.p.x+v.x*tr;if(py<R+.2)return;

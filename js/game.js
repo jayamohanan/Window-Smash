@@ -1,32 +1,50 @@
 'use strict';
 /* Windows that must break. */
 const targets=()=>panes;
+let winAt=0,leaving=false;
 function checkWin(){
-  if(won||sandbox||targets().some(p=>!p.broken))return;won=true;$('hint').hidden=true;
+  if(won||sandbox||targets().some(p=>!p.broken))return;
+  if(hop&&hop.stage<2){if(hop.stage===1)hopStart();return} /* near island cleared: on to the house */
+  winNow();
+}
+/* Win: "SMASHED!" with confetti and the jingle, then the next level loads by itself (a tap skips ahead).
+   The fade before the next level is the spot for a future ad break. */
+function winNow(){
+  won=true;winAt=performance.now();$('hint').hidden=true;$('balls').classList.remove('last');$('retryBtn').hidden=true;
   if(drag){drag=null;hidePreview()}
-  const house=LVL.type==='house';
-  if(house)later(.75,()=>{grumpT=0;grump.visible=true;sfx.hey();$('bubble').hidden=false;returnBalls()});
-  /* give the returned balls time to roll out before the card */
-  later(house?Math.max(2.1,1.15+Math.min(inBalls,8)*.28+.9):1.15,showCard);
+  const house=LVL.type==='house',final=level===LV.length-1;
+  later(.6,()=>{burstConfetti();sfx.win();$('winWord').textContent=final?'ALL SMASHED!':'SMASHED!';$('win').hidden=false;if(final)later(.8,()=>{$('again').hidden=false})});
+  if(house)later(1.15,()=>{grumpT=0;grump.visible=true;$('bubble').hidden=false;returnBalls()});
+  if(!final)later(house?Math.min(4.2,Math.max(3,1.9+Math.min(inBalls,8)*.28)):2,advance);
 }
-function showCard(){
-  const tg=targets(),n=tg.length,need=panes.reduce((k,p)=>k+1+(p.armor||0)+((p.hp||1)-1),0)+(LVL.island?1:0)+(LVL.switch?1:0);
-  let st=used<=need?3:used===need+1?2:1;
-  if(LVL.bonus){const k=tg.filter(p=>p.broken).length;st=k===n?3:k>=n*.75?2:1;
-    $('cardTitle').textContent=k===n?'Perfect smash!':'Bonus done!';$('cardText').textContent=k+' of '+n+' windows'}
-  else{$('cardTitle').textContent=st===3?'Perfect smash!':'Smashed!';$('cardText').textContent=n+(n>1?' windows':' window')+' with '+used+(used>1?' balls':' ball')}
-  $('stars').innerHTML='<b>'+'★'.repeat(st)+'</b>'+'★'.repeat(3-st);
-  $('next').textContent=level===LV.length-1?'Play again':'Next';
-  $('card').hidden=false;
-}
-let failing=false,spawnWait=0;
+function advance(){if(leaving||!won||level===LV.length-1)return;leaving=true;$('wipe').classList.add('on');later(.2,()=>loadLevel(level+1))}
+let failing=false,spawnWait=0,failT=-1,retrying=false;
 function checkFail(){
   if(won||failing||ballsLeft>0||cur)return;
-  if(balls.some(b=>b.state==='fly'||b.state==='inside')||hopBusy())return;
+  if(balls.some(b=>b.state==='fly'||b.state==='inside'||(b.state==='bounce'&&(b.rebound||b.awn||b.meshOk||(b.v.z<-1&&b.p.z>ZF))))||hopBusy())return;
   if(!targets().some(p=>!p.broken))return;
-  if(LVL.bonus){won=true;later(.6,showCard);return} /* bonus level: no fail, just count what broke */
-  failing=true;const t=$('toast');t.textContent='Out of balls';t.hidden=false;
-  later(.95,()=>{failing=false;loadLevel(level)});
+  if(LVL.bonus){winNow();return} /* bonus level: no fail; it ends with the same win as any level */
+  failing=true;later(.45,showFail);
+}
+/* Out of balls: play winds down under a dark overlay, the windows still standing pulse, and a tap restarts. */
+function showFail(){
+  if(won){failing=false;return}
+  const near=hop&&hop.stage<2,left=(near?[...panes,...hop.house]:panes).filter(p=>!p.broken).length;
+  $('failLeft').textContent=left+(left>1?' windows':' window')+' left';
+  $('missed').innerHTML=panes.filter(p=>!p.broken).map(()=>'<i></i>').join('');
+  $('balls').classList.remove('last');$('fail').hidden=false;failT=0;placeMissed();sfx.lost();
+  if(grump&&!near){const u=grump.userData;u.smug=true;u.brows.forEach(a=>{a.e.rotation.z=a.s*.28;a.e.position.y=2.88});u.mouth.rotation.z=.2;u.mouth.position.y=2.4;grumpT=0;grump.visible=true}
+}
+function retry(){if(failT<.3||retrying)return;retrying=true;$('wipe').classList.add('on');later(.2,()=>loadLevel(level))}
+/* Retry button: restart the level at any time, with a full set of balls (same quick fade) */
+function restart(){if(retrying||won||leaving)return;retrying=true;$('wipe').classList.add('on');later(.2,reloadLevel)}
+/* Keep the pulsing outlines on the windows still standing (screen space, above the overlay). */
+const _c=new T.Vector3();
+function placeMissed(){
+  const el=$('missed').children;let n=0;
+  panes.forEach(p=>{if(p.broken)return;const e=el[n++];if(!e)return;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{_c.set(p.x+a*p.w/2,p.y+b*p.h/2,0);if(p.xf)_c.applyMatrix4(p.xf);const s=toScreen(_c.x,_c.y,_c.z);x0=Math.min(x0,s[0]);x1=Math.max(x1,s[0]);y0=Math.min(y0,s[1]);y1=Math.max(y1,s[1])});
+    e.style.cssText='left:'+(x0-5)+'px;top:'+(y0-5)+'px;width:'+(x1-x0+10)+'px;height:'+(y1-y0+10)+'px'});
 }
 
 
@@ -36,22 +54,22 @@ function wallHit(b,kind){ /* kind: 'thud' | 'clang' | 'soft' (no sound or word; 
   for(let i=0;i<20;i++)dust.emit(b.p.x,b.p.y,.3,rnd(-2.2,2.2),rnd(-1,2.4),rnd(0,2.2),rnd(.25,.55),[.92,.76,.56],2);
   if(kind==='soft')return;
   addShake(.16);if(kind==='clang')sfx.clang();else sfx.thud();
-  if(Math.random()<.5)pop(kind==='clang'?'CLANG':'BONK',b.p.x,b.p.y+.5,0,true);
 }
 function crossPlane(b){
   if(b.live){b.live=false;b.a.set(0,-S.gravity,0)}
-  if(hop&&hop.stage<2)return; /* island hop, first kick: the house is still far away */
   const x=b.p.x,y=b.p.y;
   for(const p of panes){if(p.xf)continue;if(Math.abs(x-p.x)<=p.w/2+.06&&Math.abs(y-p.y)<=p.h/2+.06){
     if(!p.broken){
       if(p.shutF>0&&y>p.shutY-R*.3){wallHit(b,'clang');return}
+      if(p.awn&&b.meshOk!==p){wallHit(b,'clang');return} /* behind its mesh: only the awning route gets in */
       if(p.armor>0){breakBoards(p,b);wallHit(b,'soft');return}
       if(p.hp>1){crackPane(p,b);wallHit(b,'soft');return}
       smash(p,b);return}
     if(p.room){b.state='dead';b.a.set(0,-G,0);b.floor=p.room.floor+R;b.pane=p;b.age=0;inBalls++}else b.state='passed';
     return}}
-  if(LVL.type==='sandbox')return;
-  if(LVL.type==='stand'){const f=.3;for(const p of panes){
+  if(LVL.type==='sandbox'||LVL.type==='field')return;
+  const near=hop&&hop.stage<2; /* island hop, step one: only the glass frames are here, the house is still far away */
+  if(LVL.type==='stand'||near){const f=.3;for(const p of panes){if(near&&p.broken)continue;
     if(Math.abs(x-p.x)<=p.w/2+f&&Math.abs(y-p.y)<=p.h/2+f){wallHit(b,'thud');return}
     if(!p.hang&&Math.abs(Math.abs(x-p.x)-(p.w/2+.1))<.26&&y<p.y){wallHit(b,'thud');return}}
     return}
@@ -59,18 +77,19 @@ function crossPlane(b){
   const W=LVL.W,H=LVL.H,Gb=LVL.G,top=Math.abs(x)<=W?H+Gb*(1-Math.abs(x)/W):-1;
   if(Math.abs(x)<=W&&y<=top+.1)wallHit(b,'thud');
 }
+const _pp=new T.Vector3();
 function stepBall(b,dt){
   b.age+=dt;if(b.live&&b.state==='fly')flyLive(b,dt);const sub=4,h=dt/sub;
   /* wind pushes any ball that is in the air outside the house */
   if(wind&&!b.ghost&&b.p.y>R+.05&&(b.state==='fly'||b.state==='passed'||b.state==='bounce'))b.v.x+=wind*dt;
   for(let i=0;i<sub;i++){
-    const z0=b.p.z;b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
+    const z0=b.p.z;_pp.copy(b.p);awnStep(b,h);b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
     if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
-    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b);hitObs(b);padHit(b);catHit(b)}
+    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b,_pp);hitObs(b);padHit(b);catHit(b);wheelHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
-    if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;b.p.y=fl;
+    if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;if(pond&&b.floor===undefined&&pondTouch(b))continue;b.p.y=fl;
       if(b.live){ /* live kick that falls short: bounce, roll on the grass, stop */
         if(b.state==='fly'){b.state='ground';b.age=0;b.a.set(0,-S.gravity,0)}
         if(b.v.y<-1.5){if(b.v.y<-3)sfx.thud();b.v.y*=-.45;b.v.x*=.85;b.v.z*=.85}
@@ -108,12 +127,15 @@ function frame(now){
   const real=Math.min(.05,(now-last)/1000);last=now;
   let dt=real;
   if(freezeT>0){freezeT-=real;dt=0}
+  else if(failT>=0)dt=real*Math.max(0,1-failT/.35); /* play winds down under the overlay */
   else if(slowT>0){slowT-=real;dt=real*S.slow}
   tick(dt,real);
   renderer.render(scene,camera);
 }
 function tick(dt,real){
-  for(let i=timers.length-1;i>=0;i--){timers[i].t-=real;if(timers[i].t<=0){const f=timers[i].f;timers.splice(i,1);f()}}
+  const tl=timers; /* a timer can load a level, which replaces the list */
+  for(let i=tl.length-1;i>=0&&tl===timers;i--){tl[i].t-=real;if(tl[i].t<=0){const f=tl[i].f;tl.splice(i,1);f()}}
+  if(failT>=0){failT+=real;placeMissed()}
   mechTick(dt);
   if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!hopBusy()&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
@@ -121,11 +143,12 @@ function tick(dt,real){
   for(let i=shards.length-1;i>=0;i--){const s=shards[i];if(s.rest)continue;
     /* shards still in the frame ride along with a moving window (rail windows) until they drop */
     if(s.delay>0&&s.pane.x!==s.px){s.m.position.x+=s.pane.x-s.px;s.px=s.pane.x}
-    if(s.delay>0){s.delay-=dt;if(s.stuck&&s.delay<.2)s.m.rotation.z=Math.sin(s.delay*70)*.03;if(s.delay<=0){if(s.stuck){sfx.tink();s.v.set(rnd(-.6,.6),-.5,rnd(.2,2))}s.v.x+=s.pane.vx||0}continue}
+    if(s.delay>0){s.delay-=dt;if(s.stuck&&s.delay<.2)s.m.rotation.z=Math.sin(s.delay*70)*.03;if(s.delay<=0){if(s.stuck){sfx.tink(s.pane);s.v.set(rnd(-.6,.6),-.5,rnd(.2,2))}s.v.x+=s.pane.vx||0}continue}
     s.age+=dt;s.v.y-=23*dt;s.m.position.addScaledVector(s.v,dt);s.m.rotation.x+=s.w.x*dt;s.m.rotation.y+=s.w.y*dt;s.m.rotation.z+=s.w.z*dt;
     if(s.m.position.y<s.floor){
+      if(hop&&hop.stage<2&&isleAt(s.m.position.x,s.m.position.z)<0){scene.remove(s.m);s.m.geometry.dispose();shards.splice(i,1);continue} /* landed in the water: gone */
       s.m.position.y=s.floor;
-      if(s.v.y<-3.5&&s.w.lengthSq()>4){s.v.y*=-.26;s.v.x*=.5;s.v.z*=.5;s.w.multiplyScalar(.4);if(Math.random()<.05)sfx.tink()}
+      if(s.v.y<-3.5&&s.w.lengthSq()>4){s.v.y*=-.26;s.v.x*=.5;s.v.z*=.5;s.w.multiplyScalar(.4);if(Math.random()<.05)sfx.tink(s.pane)}
       else{s.rest=true;s.m.rotation.set(-Math.PI/2+rnd(-.04,.04),rnd(-.04,.04),rnd(0,6.28));s.m.position.y=s.floor+rnd(0,.02)}
     }
   }
@@ -136,8 +159,11 @@ function tick(dt,real){
   stepReturned(real);
   spark.step(dt);dust.step(dt);
   clouds.forEach(c=>{c.position.x+=c.userData.s*real;if(c.position.x>110)c.position.x=-110});
-  if(grumpT>=0){grumpT+=real;const k=clamp(grumpT/.28,0,1),e=1-Math.pow(1-k,3);door.rotation.y=-1.75*e;grump.position.z=lerp(-.6,1.1,e);grump.rotation.z=Math.sin(grumpT*22)*.05;grump.userData.arm.rotation.z=-.25+Math.sin(grumpT*28)*.38;
+  if(grumpT>=0){grumpT+=real;const k=clamp(grumpT/.28,0,1),e=1-Math.pow(1-k,3);door.rotation.y=-1.75*e;grump.position.z=lerp(-.6,1.1,e);const u=grump.userData;
+    if(u.smug){grump.rotation.z=Math.sin(grumpT*3.2)*.045;u.head.rotation.z=Math.sin(grumpT*3.2)*.12;u.arm.rotation.z=-.05+Math.sin(grumpT*9)*.28} /* wagging a finger, pleased with himself */
+    else{grump.rotation.z=Math.sin(grumpT*22)*.05;u.arm.rotation.z=-.25+Math.sin(grumpT*28)*.38}
     const s=toScreen(0,3.5,1.1),bb=$('bubble');bb.style.left=s[0]+'px';bb.style.top=s[1]+'px'}
+  stepConfetti(real);
   shakeA=Math.max(0,shakeA-real*2.6);zoomK=Math.max(0,zoomK-real*3.2);focusK=Math.max(0,focusK-real*1.5);
   const sx=(Math.random()-.5)*shakeA*.75,sy=(Math.random()-.5)*shakeA*.75,fk=focusK*focusK;
   camera.position.set(camBase.x+sx+focus.x*fk*.1,camBase.y+sy+focus.y*fk*.03+camOff.y,camBase.z-fk*1.5);
