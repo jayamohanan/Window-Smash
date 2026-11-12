@@ -24,8 +24,9 @@ const hidePreview=()=>prevDots.forEach(m=>m.visible=false);
 function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()}}
 canvas.addEventListener('pointerdown',e=>{initAudio();$('panel').hidden=true;if(won){if(performance.now()-winAt>350)advance();return}if(S.mode==='live'){liveDown(e);return}if(!cur||won||cur.born<.12)return;try{canvas.setPointerCapture(e.pointerId)}catch(x){}drag={pts:[point(e)],id:e.pointerId}});
 canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){liveMove(e);return}drag.pts.push(point(e));if(drag.pts.length>120)drag.pts.splice(1,1);const s=shotFrom(drag);if(s.len>18)showPreview(s);else hidePreview()});
-function release(e){if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){drag=null;return}const d=drag;drag=null;hidePreview();const s=shotFrom(d);if(s.len<30||!cur)return;kick(s)}
+function release(e){initAudio();if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){drag=null;return}const d=drag;drag=null;hidePreview();const s=shotFrom(d);if(s.len<30||!cur)return;kick(s)}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',()=>{drag=null;hidePreview()});
+addEventListener('touchend',initAudio,{passive:true}); /* iOS only counts a finger lifting (not going down) as permission to start audio */
 /* Live swipe, modelled on the input observed in World Soccer Champions: the kick fires mid-drag, the ball flies forward on its own clock, and pointer movement steers it. */
 function ballPx(){const s=toScreen(0,R,D),t=toScreen(0,R*2,D);return{x:s[0],y:s[1],r:Math.max(10,Math.abs(s[1]-t[1]))}}
 function segDist(a,b,c){const dx=b.x-a.x,dy=b.y-a.y,l=dx*dx+dy*dy||1,t=clamp(((c.x-a.x)*dx+(c.y-a.y)*dy)/l,0,1);return Math.hypot(a.x+dx*t-c.x,a.y+dy*t-c.y)}
