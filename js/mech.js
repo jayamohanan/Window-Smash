@@ -275,7 +275,7 @@ function wheelHit(b){
 /* ---------- free-standing panes: glass at any position and turn, with a solid frame, hit-tested in their own frame (see skyHit) ---------- */
 function solidFrame(p,sg,c){const f=.2;[[p.w+f*2,f,0,p.h/2+f/2],[p.w+f*2,f,0,-p.h/2-f/2],[f,p.h,-p.w/2-f/2,0],[f,p.h,p.w/2+f/2,0]].forEach(a=>addOb(box(a[0],a[1],.34,c,a[2],a[3],.1,sg),'wood'))}
 function syncPane(p){p.sg.updateWorldMatrix(true,false);p.xf=(p.xf||new T.Matrix4()).copy(p.sg.matrixWorld);p.inv=(p.inv||new T.Matrix4()).copy(p.xf).invert();p.q=p.sg.getWorldQuaternion(p.q||new T.Quaternion());p.c=p.sg.getWorldPosition(p.c||new T.Vector3())}
-function freeStand(p,pos){const sg=new T.Group();sg.position.copy(pos);group.add(sg);p.x=0;p.y=0;solidFrame(p,sg,0xfffaf0);makePane(p,sg);p.mesh.position.z=.03;p.sg=sg;syncPane(p);return sg}
+function freeStand(p,pos,col){const sg=new T.Group();sg.position.copy(pos);group.add(sg);p.x=0;p.y=0;solidFrame(p,sg,col||0xfffaf0);makePane(p,sg);p.mesh.position.z=.03;p.sg=sg;syncPane(p);return sg}
 /* Stacked line: after a break the ball flies on to the next window in the same line (no gravity on the way). */
 function chainTo(b,q){const sp=Math.max(b.v.length()*.9,16);b.live=false;b.state='fly';b.age=0;b.a.set(0,0,0);b.v.copy(q.c).sub(b.p).normalize().multiplyScalar(sp)}
 /* The ball is used up on the glass: it knocks back and drops, so it can't also break the window behind. */
@@ -332,26 +332,30 @@ function carouselDeflect(b){
   b.rebound=true;b.v.set((tx-b.p.x)/Tt,(c.y-b.p.y+.5*g*Tt*Tt)/Tt,(c.z-b.p.z)/Tt);
 }
 
-/* ---------- revolving door at the entrance: 4 glass wings. When the wings facing the player are broken, it turns a quarter. ---------- */
+/* ---------- revolving door: 4 glass wings that keep turning. With o.wall it is the house entrance: centred on the wall, so the back
+   half turns into the house. ---------- */
 let revolver=null;
 function buildRevolver(o){
   const g=group,rot=new T.Group();rot.position.set(0,0,o.z);g.add(rot);
-  const cap=new T.Mesh(new T.CylinderGeometry(o.r+.2,o.r+.2,.3,32),mat(0x5f6b80));cap.position.set(0,2.75,o.z);cap.castShadow=true;g.add(cap);
+  const wh=o.h||2.2,top=.22+wh+.2; /* wing height; top of the wing frames */
+  const cap=new T.Mesh(new T.CylinderGeometry(o.r+.2,o.r+.2,.3,32),mat(0x5f6b80));cap.position.set(0,top+.15,o.z);cap.castShadow=true;g.add(cap);
   const base=new T.Mesh(new T.CylinderGeometry(o.r+.2,o.r+.25,.08,32),mat(0x8d8577));base.position.set(0,.04,o.z);base.receiveShadow=true;g.add(base);
-  [-1,1].forEach(s=>box(.18,2.6,.18,0x5f6b80,s*(o.r+.12),1.3,o.z,g));
-  const pole=new T.Mesh(new T.CylinderGeometry(.08,.08,2.6,10),mat(0x3a3a44));pole.position.y=1.3;rot.add(pole);
+  if(!o.wall)[-1,1].forEach(s=>box(.18,top,.18,0x5f6b80,s*(o.r+.12),top/2,o.z,g)); /* free-standing: side posts; in the wall the doorway frames it */
+  const pole=new T.Mesh(new T.CylinderGeometry(.08,.08,top,10),mat(0x3a3a44));pole.position.y=top/2;rot.add(pole);
   const wings=[];
   for(let k=0;k<4;k++){const a=k*Math.PI/2,arm=new T.Group();arm.rotation.y=a;rot.add(arm);
-    const p={w:o.r-.2,h:2.2,stop:true,moving:true,x:0,y:0},sg=new T.Group();sg.position.set(.12+p.w/2,1.32,0);arm.add(sg);
-    makeFrame(p,sg,0x5f6b80);makePane(p,sg);p.mesh.position.z=0;p.sg=sg;syncPane(p);panes.push(p);wings.push({p,a})}
-  revolver={rot,target:0,wait:-1,wings};
-  const facing=(w,r)=>Math.abs(Math.cos(w.a+r))>.9;
+    const p={w:o.r-.2,h:wh,stop:true,moving:true,x:0,y:0},sg=new T.Group();sg.position.set(.12+p.w/2,.22+wh/2,0);arm.add(sg);
+    const n0=obs.length;solidFrame(p,sg,0x5f6b80);for(let i=n0;i<obs.length;i++){obs[i].kind='metal';obs[i].hit=b=>{if(b.state!=='ground'&&b.v.length()>8)revPush()}}
+    makePane(p,sg);p.mesh.position.z=0;p.sg=sg;syncPane(p);panes.push(p);wings.push({p,a,was:false})}
+  /* it drifts round at REV.base rad/s (about one turn per 11 s); a ball hitting a wing pushes it faster for a moment */
+  revolver={rot,om:REV.base,wings};
   movers.push((t,dt)=>{const R2=revolver;
-    if(R2.wait<0&&!won&&wings.some(w=>!w.p.broken)&&!wings.some(w=>!w.p.broken&&facing(w,R2.target)))R2.wait=.45;
-    if(R2.wait>=0){R2.wait-=dt;if(R2.wait<0){R2.target+=Math.PI/2;sfx.whoosh()}}
-    const d=R2.target-rot.rotation.y;rot.rotation.y+=Math.sign(d)*Math.min(Math.abs(d),dt*2.6);
+    wings.forEach(w=>{if(w.p.broken&&!w.was){w.was=true;revPush()}});
+    R2.om+=(REV.base-R2.om)*Math.min(1,dt*REV.ease);rot.rotation.y+=R2.om*dt;
     wings.forEach(w=>{syncPane(w.p);w.p.narrow=Math.abs(Math.cos(w.a+rot.rotation.y))<.5})});
 }
+const REV={base:.55,push:1.3,max:2.4,ease:1.6};
+function revPush(){if(revolver)revolver.om=Math.min(REV.max,revolver.om+REV.push)}
 
 /* ---------- awning + mesh: the upstairs window is behind a wire mesh hinged at the top of the window. A ball that lands on
    the awning below springs up into the gap behind the mesh, glances off its inside and into the glass (a set path). ---------- */
@@ -461,26 +465,64 @@ function buildBehind(L){
       if(u.wob!==undefined){u.wob+=dt;u.pad.position.z=.02-Math.sin(u.wob*30)*Math.exp(-u.wob*7)*.25}})});
 }
 
-/* ---------- deep frame: a long wooden tunnel with the glass at the far end. A ball that goes in at the mouth
-   is carried straight down the tunnel (no gravity inside) and smashes the glass at the back. ---------- */
+/* ---------- deep frame: a "domino" row of empty cream window frames standing along a curve. The big first frame (the mouth)
+   faces the camera; the row runs back, sweeps left in one gradual arc (o.turn degrees) and shrinks to a small window with glass,
+   which faces mostly sideways (a hard direct shot). Two low wooden rails join the frames. A ball that goes in at the mouth follows
+   the curve along the outer side (gravity off, 14–20 m/s), visible through the gaps; each frame it brushes wobbles with a knock,
+   and it always smashes the glass. Balls outside bounce off the frames. ---------- */
 let tunnel=null;
+const _tv=new T.Vector3(),_ty=new T.Vector3(0,1,0),_tu=new T.Vector3(0,0,1),_tx=new T.Vector3(1,0,0),_tq=new T.Quaternion();
 function buildTunnel(L){
-  const o=L.tunnel,p=panes[0],w=o.w,h=o.h,cy=o.y,zm=o.zm,ze=o.ze,len=zm-ze,zc=(zm+ze)/2,t=.3,c=0xe8d7b6,skip=b=>b.tun===1;
-  p.w=w;p.h=h;freeStand(p,new T.Vector3(0,cy,ze));p.aimOff=true;
-  [[t,h+t*2,len,-w/2-t/2,cy],[t,h+t*2,len,w/2+t/2,cy],[w+t*2,t,len,0,cy+h/2+t/2],[w+t*2,t,len,0,cy-h/2-t/2]].forEach(a=>{addOb(box(a[0],a[1],a[2],c,a[3],a[4],zc,group),'wood');obs[obs.length-1].skip=skip});
-  /* white trim around the mouth, like a window frame */
-  const f=.34,mw=w+t*2;[[mw+f*2,f,0,h/2+t+f/2],[mw+f*2,f,0,-h/2-t-f/2],[f,h+t*2,-mw/2-f/2,0],[f,h+t*2,mw/2+f/2,0]].forEach(a=>addOb(box(a[0],a[1],.4,0xfffaf0,a[2],cy+a[3],zm-.15,group),'wood'));
-  const ph=cy-h/2-t;[zm-.7,ze+.7].forEach(z=>[-1,1].forEach(s=>box(.3,ph,.3,0x8a5f3b,s*(w/2+t/2),ph/2,z,group)));
-  [-1,1].forEach(s=>box(.34,.14,len,0x704b2c,s*(w/2+t/2),.07,zc,group));
-  tunnel={x:0,cy,w,h,zm,ze,p};
+  const o=L.tunnel,p=panes[0],g=group,turn=o.turn*Math.PI/180,skip=b=>b.tun>0,bar=.16,cream=0xfffaf0,wood=0x8a5f3b;
+  /* centre line on the ground: straight back from the mouth, an arc of radius rc turning left, a short straight */
+  const flat=[],cx=o.mx-o.rc,cz=o.zm-o.s1;
+  for(let i=0;i<=4;i++)flat.push(new T.Vector3(o.mx,0,o.zm-o.s1*i/4));
+  for(let i=1;i<=24;i++){const f=turn*i/24;flat.push(new T.Vector3(cx+o.rc*Math.cos(f),0,cz-o.rc*Math.sin(f)))}
+  const dEnd=new T.Vector3(-Math.sin(turn),0,-Math.cos(turn)),last=flat[flat.length-1];
+  for(let i=1;i<=3;i++)flat.push(last.clone().addScaledVector(dEnd,o.s2*i/3));
+  const curve=new T.CurvePath();for(let i=1;i<flat.length;i++)curve.add(new T.LineCurve3(flat[i-1],flat[i]));
+  const tot=curve.getLength(),ease=t=>{const k=clamp((t-.12)/.8,0,1);return k*k*(3-2*k)};
+  const fw=t=>lerp(o.w0,p.w,ease(t)),fh=t=>lerp(o.h0,p.h,ease(t)),fy=t=>fh(t)/2+bar; /* frame opening size and centre height */
+  /* the frames: each in its own group standing on the ground, facing along the curve */
+  const frames=[],n=Math.round(tot/o.gap);
+  for(let i=0;i<n;i++){const t=i/n,w=fw(t),h=fh(t),fg=new T.Group();fg.position.copy(curve.getPointAt(t));
+    fg.quaternion.setFromUnitVectors(_tu,_tv.copy(curve.getTangentAt(t)).negate());g.add(fg);
+    const bw=i===0?bar*1.5:bar;
+    [[w+bw*2,bw,0,h+bw*1.5],[w+bw*2,bw,0,bw/2],[bw,h,-w/2-bw/2,h/2+bw],[bw,h,w/2+bw/2,h/2+bw]].forEach(a=>{addOb(box(a[0],a[1],.2,cream,a[2],a[3],0,fg),'wood');obs[obs.length-1].skip=skip});
+    frames.push({fg,t,q0:fg.quaternion.clone(),wob:-1})}
+  /* two low rails joining the frame feet */
+  for(let i=0;i<n;i++){const t0=i/n,t1=Math.min(1,(i+1)/n);[-1,1].forEach(s=>{
+    const a=curve.getPointAt(t0),c=curve.getPointAt(t1),ta=curve.getTangentAt(t0),tc=curve.getTangentAt(t1);
+    const A=a.clone().addScaledVector(_tv.crossVectors(ta,_tx.set(0,1,0)).normalize(),s*(fw(t0)/2+bar/2)),C=c.clone().addScaledVector(_tv.crossVectors(tc,_tx.set(0,1,0)).normalize(),s*(fw(t1)/2+bar/2));
+    const m=box(.14,.1,A.distanceTo(C)+.06,wood,(A.x+C.x)/2,.05,(A.z+C.z)/2,g);m.quaternion.setFromUnitVectors(_tu,_tv.copy(C).sub(A).normalize())})}
+  _tx.set(1,0,0);
+  /* the last, small frame holds the glass */
+  const E=curve.getPointAt(1).setY(fy(1));
+  freeStand(p,E,cream);p.sg.rotation.y=Math.atan2(dEnd.x,dEnd.z);syncPane(p);p.aimOff=true;
+  tunnel={x:o.mx,cy:fy(0),w:o.w0,h:o.h0,zm:o.zm,curve,fw,fh,fy,frames,dEnd,E,p};
+  movers.push((tt,dt)=>frames.forEach(f=>{if(f.wob<0)return;f.wob+=dt;const a=Math.sin(f.wob*22)*Math.exp(-f.wob*5)*.07;
+    f.fg.quaternion.copy(f.q0).multiply(_tq.setFromAxisAngle(_tx,a));if(f.wob>1.4){f.wob=-1;f.fg.quaternion.copy(f.q0)}}));
 }
+function tunnelBump(tn,t){sfx.wood();addShake(.05);let best=null,bd=1e9;tn.frames.forEach(f=>{const d=Math.abs(f.t-t);if(d<bd){bd=d;best=f}});if(best)best.wob=0}
 function tunnelHit(b){
   const tn=tunnel;if(!tn||b.ghost)return;
-  if(b.tun===1){if(tn.p.broken||b.p.z<tn.ze-.4){b.tun=2;b.a.set(0,-S.gravity,0)}return}
-  if(b.tun||tn.p.broken||b.v.z>=0||b.p.z>tn.zm||b.p.z<tn.ze+1)return;
+  if(b.tun===1){
+    if(tn.p.broken){b.tun=2;b.a.set(0,-S.gravity,0);return}
+    const q=b.path[b.wp];if(!q||_tv.copy(q).sub(b.p).dot(b.v)>0)return;
+    b.p.copy(q);if(b.pk[b.wp]>=0)tunnelBump(tn,b.pk[b.wp]);b.wp++;const n=b.path[b.wp];
+    if(n)b.v.copy(n).sub(q).setLength(b.spd);else{b.tun=2;b.a.set(0,-S.gravity,0)}
+    return}
+  if(b.tun||tn.p.broken||b.v.z>=0||b.p.z>tn.zm+R+.1||b.p.z<tn.zm-1.5)return;
   if(Math.abs(b.p.x-tn.x)>tn.w/2-R*.5||Math.abs(b.p.y-tn.cy)>tn.h/2-R*.5)return;
-  b.tun=1;b.live=false;b.state='fly';b.age=0;b.a.set(0,0,0);
-  b.v.set(tn.x-b.p.x,tn.cy-b.p.y,tn.ze-b.p.z).normalize().multiplyScalar(clamp(b.v.length(),13,20));sfx.whoosh();
+  /* the path: from the entry point toward the outer side of the curve, brushing a few frames, then out through the glass */
+  const path=[],pk=[],side=new T.Vector3(),up=new T.Vector3(0,1,0),bumps=[.4+rnd(-.05,.05),.64+rnd(-.05,.05),.84];
+  for(let t=.06;t<.97;t+=.045){const c=tn.curve.getPointAt(t),tg=tn.curve.getTangentAt(t);side.crossVectors(tg,up).normalize(); /* right = outer side of a left turn */
+    const bump=bumps.findIndex(x=>Math.abs(x-t)<.0225),half=tn.fw(t)/2-R-.06,out=t<.25?lerp((b.p.x-tn.x)/(tn.w/2),.55,t/.25):bump>=0?1:.7;
+    c.addScaledVector(side,out*half);c.y=lerp(clamp(b.p.y,R+.3,tn.cy+tn.h/2-R),tn.fy(t)-tn.fh(t)*.15,clamp(t/.3,0,1));
+    path.push(c);pk.push(bump>=0?t:-1)}
+  path.push(tn.E.clone().addScaledVector(tn.dEnd,.6));pk.push(-1);
+  b.tun=1;b.live=false;b.state='fly';b.age=0;b.a.set(0,0,0);b.path=path;b.pk=pk;b.wp=0;b.spd=clamp(b.v.length(),14,20);
+  b.v.copy(path[0]).sub(b.p).setLength(b.spd);
 }
 
 /* ---------- hinged blockers: the force of the kick swings them out of the way ----------
@@ -688,6 +730,7 @@ let sw=null,pads=[];
 function aimTargets(){
   const a=[];
   panes.forEach(p=>{if(p.broken||p.locked||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
+    if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0});return} /* revolving door: lead the wing by ~0.55 s of turn */
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
   if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
   hinges.forEach(hg=>{if(!hg.open&&hg.aim)a.push(hg.aim)}); /* a closed blocker: aim at the spot that swings it */

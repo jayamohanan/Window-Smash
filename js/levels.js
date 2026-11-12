@@ -9,7 +9,8 @@
    mill = windmill on the house front, gantry = overhead beam, island = two-step island hop (first = the glass frames on the near island; panes = the house on the far one), bonus = no fail (greenhouse),
    switch = bullseye that unlocks shutter:{lock:true} windows, cat = a cat on one window's sill blocks it and hops between windows, pads = bounce pads, gwall = garden wall, night = lighthouse night (memory level), layout = function returning fresh panes on each attempt, towers = mansion towers, wheel = solid disc with one gap on the house front.
    type:'field' = free-standing panes placed by a builder (field:'stack' | 'carousel' | 'behind' | 'aquarium' | 'tunnel').
-   tunnel:{y,w,h,zm,ze} = deep frame: a wooden tunnel from z zm (mouth) to ze (glass); a ball that enters is carried to the glass.
+   tunnel:{mx,zm,w0,h0,gap,s1,rc,turn,s2} = deep frame: a row of empty window frames (gap m apart) along a curve; the first frame (w0×h0)
+     stands at x mx / z zm, then s1 m straight back, an arc of radius rc turning left by turn°, s2 m straight; they shrink to the pane's size.
    carousel.items: {empty:true} = frame only, {inner:true} = mesh outside, glass facing the centre; inner = windows standing inside the circle.
    spin:[pane indexes] (house) = spin boards on poles in front of those windows; type field + field:'flip' + flip:{bar,w,h,items,win|glass} = panels on a bar that tip over when kicked high.
    awn:true (house pane) = wire mesh over it, awning below that springs the ball up into the gap; revolver = revolving door with 4 glass wings. */
@@ -21,7 +22,7 @@ const isle1=()=>[{x:-2.9,y:2.3,w:2,h:1.8},{x:0,y:3.4,w:2,h:1.8},{x:2.9,y:2.7,w:2
 const LV=[
  {name:'First Kick',type:'stand',balls:3,tut:true,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
  {name:'Three Stands',type:'stand',balls:5,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
- {name:'Deep Frame',type:'field',field:'tunnel',balls:3,tunnel:{y:3.2,w:3.6,h:3.2,zm:4,ze:-4},panes:[{x:0,y:3.2,w:3.6,h:3.2}]},
+ {name:'Deep Frame',type:'field',field:'tunnel',balls:3,tunnel:{mx:3.5,zm:3,w0:3,h0:2.6,gap:.7,s1:3,rc:4.5,turn:120,s2:1},panes:[{x:0,y:1,w:1.3,h:1.1}]},
  {name:'First House',type:'house',H:5.2,G:2.3,W:7,balls:4,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Four Windows',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]},
  {name:'Stacked Windows',type:'field',field:'stack',balls:5,layout:()=>stackPanes(),panes:[]},
@@ -45,7 +46,7 @@ const LV=[
  {name:'Tip Over',type:'field',field:'flip',balls:8,flip:{bar:{y:3,z:2.5},w:2.7,h:2.5,items:[{x:-4.6},{x:0},{x:4.6}],win:{y:4.35,z:-1,w:2,h:1.8}},panes:[]},
  {name:'Flip Side',type:'field',field:'flip',balls:8,flip:{bar:{y:3.1,z:1.5},w:2.6,h:2.5,items:[{x:-4.4},{x:0},{x:4.4}],glass:true},panes:[]},
  {name:'Through the Gap',type:'house',H:8.2,G:2.2,W:7,balls:8,wheel:{x:0,y:4.6,z:1.6,r:6.2,gap:Math.PI/2,speed:.45},panes:four()},
- {name:'Revolving Door',type:'house',H:5.2,G:2.3,W:7,balls:9,revolver:{z:1.5,r:1.2},panes:two()},
+ {name:'Revolving Door',type:'house',H:5.2,G:2.3,W:7,balls:9,revolver:{z:0,r:1.2,h:3,wall:true},panes:two()},
  {name:'Bullseye',type:'house',H:5.2,G:2.3,W:7,balls:5,switch:{x:0,y:6.1,z:.3},panes:two().map(p=>Object.assign(p,{shutter:{lock:true}}))},
  {name:'Bounce Pads',type:'house',H:8.2,G:2.2,W:7,balls:7,gwall:{z:3,h:3.2},pads:[{x:-3.9,z:6.8},{x:3.9,z:6.8}],panes:four()},
  {name:'Awnings',type:'house',H:8.2,G:2.2,W:7,balls:8,panes:four().map((p,i)=>i>1?Object.assign(p,{awn:true}):p)},
@@ -83,14 +84,47 @@ function clearLevel(){
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
   box(f,p.h,.34,c,p.x-p.w/2-f/2,p.y,z,parent);box(f,p.h,.34,c,p.x+p.w/2+f/2,p.y,z,parent)}
-function makePane(p,parent){const m=new T.Mesh(new T.PlaneGeometry(p.w,p.h),glassMat);m.position.set(p.x,p.y,0);m.renderOrder=3;parent.add(m);p.mesh=m;p.broken=false}
+function makePane(p,parent){const m=new T.Mesh(new T.PlaneGeometry(p.w,p.h),glassMat);m.position.set(p.x,p.y,0);m.renderOrder=3;parent.add(m);p.mesh=m;p.broken=false;addGlare(p)}
 
+/* A lit hallway behind the revolving door (built like the window rooms), so the wings turn into a room, not a black hole. */
+function makeHall(g){
+  const w=3.4,h=4,dp=5,c=new T.Color(0xf3d2b3),shade=k=>new T.MeshBasicMaterial({color:c.clone().multiplyScalar(k),side:T.BackSide});
+  const m=new T.Mesh(new T.BoxGeometry(w,h,dp),[shade(.78),shade(.78),new T.MeshBasicMaterial({color:0xfff6dc,side:T.BackSide}),new T.MeshBasicMaterial({color:0x9a6b43,side:T.BackSide}),shade(.5),shade(1)]);
+  m.position.set(0,h/2,-.22-dp/2);g.add(m);
+  box(1.3,.02,dp-.4,0xd9503f,0,.02,-.22-dp/2,g,false);[-1,1].forEach(s=>box(.08,.025,dp-.4,0xffc53a,s*.5,.025,-.22-dp/2,g,false)); /* runner rug */
+  const bz=-.22-dp+.04;box(1.3,.95,.05,0x8a5f3b,0,2.3,bz,g,false);box(1.1,.45,.02,0x8fd0ee,0,2.48,bz+.04,g,false);box(1.1,.32,.02,0x5da845,0,2.09,bz+.04,g,false); /* picture */
+  const rx=-1.35,rz=-3.2;box(.42,.06,.42,0x5a3d26,rx,.03,rz,g,false);box(.08,1.95,.08,0x5a3d26,rx,1,rz,g,false); /* coat rack */
+  [[.18,0],[-.18,0],[0,.18]].forEach(o=>box(.24,.05,.05,0x5a3d26,rx+o[0]*.6,1.85,rz+o[1]*.6,g,false));
+  const hat=new T.Mesh(new T.CylinderGeometry(.2,.22,.2,16),mat(0x3f6fc2));hat.position.set(rx+.16,2.02,rz);g.add(hat);
+  const brim=new T.Mesh(new T.CylinderGeometry(.34,.34,.03,18),mat(0x3f6fc2));brim.position.set(rx+.16,1.93,rz);g.add(brim);
+  const coat=box(.42,.8,.14,0xd9503f,rx,1.4,rz+.12,g,false);coat.rotation.y=.2;
+}
+/* Curtains: a cloth with vertical folds. The plane is waved in depth, and the fold light and shade is painted in the texture
+   (rooms are unlit), with crests lining up with the waves. CF folds across one curtain. */
+const CF=4,foldPh=u=>u*CF*Math.PI*2+.9*Math.sin(u*7.3+.6); /* uneven fold widths, so it reads as cloth, not stripes */
+const curtainTex=canvasTex(256,4,(g,w,h)=>{const lo=[168,52,40],hi=[236,112,90];for(let x=0;x<w;x++){const k=Math.pow(.5+.5*Math.cos(foldPh((x+.5)/w)),1.2);g.fillStyle='rgb('+lo.map((c,i)=>Math.round(c+(hi[i]-c)*k)).join(',')+')';g.fillRect(x,0,1,h)}});
+const curtainMat=new T.MeshBasicMaterial({map:curtainTex});
+/* Tied back: full width at the top, pinched to CT.pinch at the tie (CT.v of the height, from the bottom; 25%), flaring to CT.foot
+   at the hem. Anchored on the window-side edge (s: -1 left curtain, 1 right), so the folds bunch toward the tie. */
+const CT={v:.25,pinch:.4,foot:.6};
+/* Each curtain covers at most CURT.max of the window's width (per side, as seen in the opening), so the room always shows.
+   About half the windows have tied-back curtains; the rest hang straight, each side covering a different CURT.min..max.
+   The choice is seeded from the window's position and the level, so a retry looks the same. */
+const CURT={max:.22,min:.1,tied:.5,hidden:.08}; /* hidden: the strip of cloth tucked behind the frame */
+const hash=n=>{const x=Math.sin(n)*43758.5453;return x-Math.floor(x)};
+const curtainW=v=>v>=CT.v?CT.pinch+(1-CT.pinch)*Math.pow((v-CT.v)/(1-CT.v),1.4):CT.pinch+(CT.foot-CT.pinch)*Math.pow((CT.v-v)/CT.v,.8);
+function curtainGeo(w,h,s,tied){const geo=new T.PlaneGeometry(w,h,CF*8,16),a=geo.attributes.position;
+  for(let i=0;i<a.count;i++){const u=a.getX(i)/w+.5,v=a.getY(i)/h+.5,k=tied?curtainW(v):1,q=s<0?u:1-u; /* q: 0 at the outer edge */
+    a.setX(i,s*(w/2-q*k*w));a.setZ(i,.04*Math.cos(foldPh(u))*(.6+.4*k))}a.needsUpdate=true;return geo}
 function makeRoom(p,parent){
   const w=p.w+2.4,h=p.h+1.3,dp=5,floor=p.y-p.h/2-.45,cy=floor+h/2,c=new T.Color(p.wall);
   const shade=k=>new T.MeshBasicMaterial({color:c.clone().multiplyScalar(k),side:T.BackSide});
   const m=new T.Mesh(new T.BoxGeometry(w,h,dp),[shade(.78),shade(.78),new T.MeshBasicMaterial({color:0xfff6dc,side:T.BackSide}),new T.MeshBasicMaterial({color:0x9a6b43,side:T.BackSide}),shade(.5),shade(1)]);
   m.position.set(p.x,cy,-.22-dp/2);parent.add(m);
-  [-1,1].forEach(s=>{const cur=new T.Mesh(new T.BoxGeometry(.5,p.h+.2,.06),bmat(s<0?0xd9503f:0xd9503f));cur.position.set(p.x+s*(p.w/2-.14),p.y,-.34);parent.add(cur)});
+  {const seed=p.x*12.9898+p.y*78.233+level*3.7,tied=hash(seed)<CURT.tied,ch=p.h+.2;
+  [-1,1].forEach((s,j)=>{const vis=tied?Math.min(.54,CURT.max*p.w):p.w*lerp(CURT.min,CURT.max,hash(seed+j*5.1+1)),cw=vis+CURT.hidden,cx=p.x+s*(p.w/2+CURT.hidden-cw/2);
+    const cur=new T.Mesh(curtainGeo(cw,ch,s,tied),curtainMat);cur.position.set(cx,p.y,-.34);parent.add(cur);
+    if(!tied)return;const tw=CT.pinch*cw+.04,tie=new T.Mesh(new T.BoxGeometry(tw,.1,.1),bmat(0xffc53a));tie.position.set(cx+s*(cw/2-tw/2+.02),p.y-ch/2+CT.v*ch,-.3);parent.add(tie)})} /* tied back low */
   const pg=new T.Group();pg.position.set(p.x,floor,-3.1);parent.add(pg);
   const b=(a,e,o,col,x,y,z)=>{const q=new T.Mesh(new T.BoxGeometry(a,e,o),bmat(col));q.position.set(x,y,z);pg.add(q);return q};
   let tY=1.4,colors,word;
@@ -107,7 +141,8 @@ function buildHouse(L){
   const sh=new T.Shape();sh.moveTo(-W,0);sh.lineTo(W,0);sh.lineTo(W,H);sh.lineTo(0,H+G);sh.lineTo(-W,H);sh.closePath();
   const hole=(x0,y0,x1,y1)=>{const q=new T.Path();q.moveTo(x0,y0);q.lineTo(x0,y1);q.lineTo(x1,y1);q.lineTo(x1,y0);q.closePath();sh.holes.push(q)};
   panes.forEach(p=>!p.sky&&hole(p.x-p.w/2,p.y-p.h/2,p.x+p.w/2,p.y+p.h/2));
-  hole(-.95,0,.95,3.3);
+  const rv=!!L.revolver,dw=rv?1.3:.95,dh=rv?3.6:3.3; /* doorway half-width and height (wider and taller for the revolving door) */
+  hole(-dw,0,dw,dh);
   const tex=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#f2bd86';c.fillRect(0,0,w,h);c.fillStyle='#d99d62';for(let i=0;i<4;i++)c.fillRect(0,i*h/4,w,3);c.fillStyle='rgba(255,255,255,.08)';for(let i=0;i<4;i++)c.fillRect(0,i*h/4+6,w,10)});
   tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(.42,.42);
   const wg=new T.ExtrudeGeometry(sh,{depth:.38,bevelEnabled:false});
@@ -119,9 +154,10 @@ function buildHouse(L){
   [-1,1].forEach(s=>{const r=box(len,.3,8.2,0xc6473a,s*(W+.9)/2,H+G*(1-(W+.9)/(2*W))+.14,-3,g);r.rotation.z=-s*slope;addOb(r,'roof')});
   addOb(box(1.2,2.6,1.2,0xa8513f,4,H+1.6,-3,g),'wall');box(1.45,.28,1.45,0x7c3a2d,4,H+2.9,-3,g);
   [-1,1].forEach(s=>addOb(box(.2,H,7,0xd99d62,s*W,H/2,-3.6,g),'wall'));
-  const dark=new T.Mesh(new T.PlaneGeometry(1.9,3.3),bmat(0x2b2230));dark.position.set(0,1.65,-.16);g.add(dark);
-  [[-1.07],[1.07]].forEach(a=>box(.24,3.5,.38,0xfffaf0,a[0],1.75,.1,g));box(2.38,.24,.38,0xfffaf0,0,3.42,.1,g);
-  const pivot=new T.Group();pivot.position.set(-.95,0,.16);g.add(pivot);box(1.9,3.28,.12,0x2f7e77,.95,1.64,0,pivot);box(1.3,.9,.03,0x276963,.95,2.45,.07,pivot,false);box(1.3,.9,.03,0x276963,.95,1.15,.07,pivot,false);const kn=new T.Mesh(new T.SphereGeometry(.1,10,8),mat(0xffc53a));kn.position.set(1.65,1.6,.12);pivot.add(kn);door=pivot;
+  if(rv)makeHall(g);else{const dark=new T.Mesh(new T.PlaneGeometry(1.9,3.3),bmat(0x2b2230));dark.position.set(0,1.65,-.16);g.add(dark)}
+  [-1,1].forEach(s=>box(.24,dh+.2,.38,0xfffaf0,s*(dw+.12),(dh+.2)/2,.1,g));box(dw*2+.48,.24,.38,0xfffaf0,0,dh+.12,.1,g);
+  if(rv){door=new T.Group();g.add(door)} /* no swing door: the owner's win walk still sets door.rotation */
+  else{const pivot=new T.Group();pivot.position.set(-.95,0,.16);g.add(pivot);box(1.9,3.28,.12,0x2f7e77,.95,1.64,0,pivot);box(1.3,.9,.03,0x276963,.95,2.45,.07,pivot,false);box(1.3,.9,.03,0x276963,.95,1.15,.07,pivot,false);const kn=new T.Mesh(new T.SphereGeometry(.1,10,8),mat(0xffc53a));kn.position.set(1.65,1.6,.12);pivot.add(kn);door=pivot}
   [-1,1].forEach(s=>[.7,1.5].forEach(k=>{const b=new T.Mesh(new T.IcosahedronGeometry(.9,1),mat(k<1?0x3f8f3e:0x4fa04a));b.position.set(s*(W+k*.9),.65,.9);b.castShadow=true;g.add(b)}));
   if(!L.island&&!L.gwall)for(let i=0;i<7;i++){const st=new T.Mesh(new T.CylinderGeometry(.55,.6,.05,9),mat(0xcdbb9b));st.position.set(Math.sin(i*1.5)*.22,.03,1.1+i*1.45);st.receiveShadow=true;g.add(st)}
   const n=new T.Group();

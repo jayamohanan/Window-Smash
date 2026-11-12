@@ -3,7 +3,7 @@ const T=THREE, $=id=>document.getElementById(id);
 const rnd=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.min(b,Math.max(a,v)), lerp=(a,b,t)=>a+(b-a)*t;
 
 /* ---------- settings ---------- */
-const DEF={mode:'live',power:5.5,loft:.5,side:1,lift:1,gravity:16,grab:1.5,ring:3,speed:30,curve:1,snap:.2,reach:1.5,preview:.4,freeze:85,slow:.3,shake:1,shards:1,sound:true};
+const DEF={mode:'live',power:5.5,loft:.5,side:1,lift:1,gravity:16,grab:1.5,ring:3,speed:30,curve:1,snap:.2,reach:1.5,preview:.4,freeze:85,slow:.3,shake:1,shards:1,sound:true,glSky:true,glints:true};
 const KEY='windowSmash.v3'; /* v3: live kick is now ballistic (old saved gravity/flight values no longer fit) */
 let S=Object.assign({},DEF);
 try{Object.assign(S,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}

@@ -19,16 +19,19 @@ function winNow(){
 }
 function advance(){if(leaving||!won||level===LV.length-1)return;leaving=true;$('wipe').classList.add('on');later(.2,()=>loadLevel(level+1))}
 let failing=false,spawnWait=0,failT=-1,retrying=false;
+/* a ball that can still break something: in flight, on a scripted path (tunnel), rolling into a room, a bounce that's still headed in,
+   or (field levels) a ball that broke a pane and flies on toward the next one */
+function inPlay(){return balls.some(b=>b.tun===1||b.state==='fly'||b.state==='inside'||(b.state==='bounce'&&(b.rebound||b.awn||b.meshOk||(b.v.z<-1&&b.p.z>ZF)))||(LVL.type==='field'&&b.state==='passed'&&!b.ghost&&b.p.y>R+.05))||hopBusy()}
 function checkFail(){
   if(won||failing||ballsLeft>0||cur)return;
-  if(balls.some(b=>b.state==='fly'||b.state==='inside'||(b.state==='bounce'&&(b.rebound||b.awn||b.meshOk||(b.v.z<-1&&b.p.z>ZF))))||hopBusy())return;
+  if(inPlay())return;
   if(!targets().some(p=>!p.broken))return;
   if(LVL.bonus){winNow();return} /* bonus level: no fail; it ends with the same win as any level */
   failing=true;later(.45,showFail);
 }
 /* Out of balls: play winds down under a dark overlay, the windows still standing pulse, and a tap restarts. */
 function showFail(){
-  if(won){failing=false;return}
+  if(won||cur||inPlay()){failing=false;return} /* a ball got back into play during the delay: checkFail tries again later */
   const near=hop&&hop.stage<2,left=(near?[...panes,...hop.house]:panes).filter(p=>!p.broken).length;
   $('failLeft').textContent=left+(left>1?' windows':' window')+' left';
   $('missed').innerHTML=panes.filter(p=>!p.broken).map(()=>'<i></i>').join('');
@@ -84,7 +87,7 @@ function stepBall(b,dt){
   for(let i=0;i<sub;i++){
     const z0=b.p.z;_pp.copy(b.p);awnStep(b,h);b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
-    if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
+    if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&b.tun!==1&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0)&&LVL.type!=='field')b.state='passed'} /* field levels have no house wall at ZF: the ball is still in flight */
     if(b.state!=='inside'&&b.state!=='dead'){skyHit(b,_pp);tunnelHit(b);shutTrickStep(b);hitObs(b);padHit(b);catHit(b);wheelHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
@@ -135,7 +138,7 @@ function tick(dt,real){
   const tl=timers; /* a timer can load a level, which replaces the list */
   for(let i=tl.length-1;i>=0&&tl===timers;i--){tl[i].t-=real;if(tl[i].t<=0){const f=tl[i].f;tl.splice(i,1);f()}}
   if(failT>=0){failT+=real;placeMissed()}
-  mechTick(dt);
+  mechTick(dt);glareTick(real);
   if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!hopBusy()&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
   for(let i=balls.length-1;i>=0;i--)if(!stepBall(balls[i],dt))balls.splice(i,1);

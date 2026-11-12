@@ -29,6 +29,12 @@
       </g>
     </svg>
     <div class="ld-bar"><b></b></div>
+    <div class="ld-pct">0%</div>
+    <script>/* loading 0–100%: eases toward 85% while files download (at least 60% once three.js is in), then 100% when the game is ready (ui.js sets ldDone) */
+    (function(){var b=document.querySelector('.ld-bar b'),t=document.querySelector('.ld-pct'),p=0,t0=performance.now();
+    function f(){var s=(performance.now()-t0)/1000,g=window.ldDone?100:Math.max(85*(1-Math.exp(-s*1.6)),window.THREE?60:0);
+    p+=(g-p)*(window.ldDone?.3:.12);if(g-p<.5)p=g;b.style.width=p+'%';t.textContent=Math.floor(p)+'%';
+    if(p<100)requestAnimationFrame(f);else window.ldFull=1}requestAnimationFrame(f)})();</script>
   </div>
   <canvas id="gl"></canvas>
   <canvas id="fx"></canvas>
@@ -44,9 +50,14 @@
   <button id="gear" aria-label="Tuning (dev)">⚙</button>
   <div id="panel" hidden>
     <h4>Tuning</h4>
-    <div class="row" id="modeRow" hidden>
+    <div class="row" id="modeRow">
+      <button class="chip" data-mode="live">Live swipe</button>
       <button class="chip" data-mode="aim">Swipe to aim</button>
       <button class="chip" data-mode="shape">Swipe shape</button>
+    </div>
+    <div class="row" id="glassRow">
+      <button class="chip" id="glSky">Glass: sky drift</button>
+      <button class="chip" id="glGlint">Glass: glints</button>
     </div>
     <div id="sliders" style="display:grid;gap:7px"></div>
     <div class="row" id="lvlRow"></div>
@@ -71,6 +82,7 @@
 <script src="js/audio.js"></script>
 <script src="js/levels.js"></script>
 <script src="js/mech.js"></script>
+<script src="js/glare.js"></script>
 <script src="js/input.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ui.js"></script>

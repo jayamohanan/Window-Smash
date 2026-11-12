@@ -75,6 +75,5 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 #loader.done{opacity:0;pointer-events:none}
 .ld-pic{width:min(160px,44vw);height:auto;filter:drop-shadow(0 6px 0 rgba(35,48,74,.25))}
 .ld-bar{width:min(240px,70vw);height:12px;border-radius:6px;background:rgba(35,48,74,.3);overflow:hidden}
-.ld-bar b{display:block;width:40%;height:100%;border-radius:6px;background:var(--gold);animation:bar 1.1s ease-in-out infinite}
-@keyframes bar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
-@media (prefers-reduced-motion:reduce){.ld-bar b{animation-duration:3s}}
+.ld-bar b{display:block;width:0;height:100%;border-radius:6px;background:var(--gold)}
+.ld-pct{margin-top:-8px;font:900 16px var(--body);color:var(--ink);font-variant-numeric:tabular-nums}

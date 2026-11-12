@@ -74,8 +74,9 @@ function smash(p,b,lh){
   const w=p.xf?new T.Vector3(hx,hy,.1).applyMatrix4(p.xf):new T.Vector3(hx,hy,.15);
   for(let i=0;i<90;i++)spark.emit(w.x,w.y,w.z,rnd(-7,7),rnd(-5,8),rnd(-5,8),rnd(.2,.75),[.85,.95,1],8);
   ringAt(new T.Vector3(w.x,w.y,p.xf?w.z+.3:.3));
-  freezeT=S.freeze/1000;slowT=.26;addShake(last?1:.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
-  sfx.glass();if(last)sfx.boom();
+  const thru=!last&&p.back&&!p.back.broken; /* a window in a line with another one behind it: the ball keeps going, so no pause and only a gentle shake */
+  if(!thru){freezeT=S.freeze/1000;slowT=.26}addShake(last?1:thru?.2:.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
+  sfx.glass();if(last)sfx.boom();glareBreak(p);
   if(p.sky&&p.dark&&group.userData.wallTex){const t=group.userData.wallTex.clone();t.needsUpdate=true;t.repeat.set(p.w*.42,p.h*.42);p.dark.material=new T.MeshBasicMaterial({map:t,color:0xb8a898})} /* the wall under the porch shows through */
   if(p.sky){b.live=false;b.ghost=true;b.state='passed';b.age=0;b.a.set(0,-S.gravity,0);b.v.multiplyScalar(.4)}
   else if(p.back&&!p.back.broken)chainTo(b,p.back);
