@@ -18,6 +18,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 #balls{display:flex;gap:4px;align-items:center;background:rgba(35,48,74,.85);padding:7px 10px;border-radius:10px}
 #balls i{width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#23304a 0 28%,#fff 30%);box-shadow:inset 0 0 0 1px #9aa7bd;display:block}
 #balls i.used{opacity:.22}
+#balls:empty{visibility:hidden}
 .spacer{flex:1}
 /* Level number, centred at the top */
 #lvlNo{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--paper);font:400 18px var(--display);padding:7px 14px;border-radius:10px;white-space:nowrap;pointer-events:none;line-height:1.2}

@@ -6,7 +6,7 @@
    rail:{amp,speed,phase} = stand window sliding on a rail; hang:true = hangs from the gantry;
    back/roof:true = greenhouse back wall / roof glass.
    Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial,
-   mill = windmill on the house front, gantry = overhead beam, island = two-step island hop (first = the glass frames on the near island; panes = the house on the far one), bonus = no fail (greenhouse),
+   mill = windmill on the house front, gantry = overhead beam, island = two-step island hop (first = the glass frames on the near island; panes = the house on the far one), bonus = no fail (greenhouse), free = unlimited balls and no ball row (onboarding levels),
    switch = bullseye that unlocks shutter:{lock:true} windows, cat = a cat on one window's sill blocks it and hops between windows, pads = bounce pads, gwall = garden wall, night = lighthouse night (memory level), layout = function returning fresh panes on each attempt, towers = mansion towers, wheel = solid disc with one gap on the house front.
    type:'field' = free-standing panes placed by a builder (field:'stack' | 'carousel' | 'behind' | 'aquarium' | 'tunnel').
    tunnel:{mx,zm,w0,h0,gap,s1,rc,turn,s2} = deep frame: a row of empty window frames (gap m apart) along a curve; the first frame (w0×h0)
@@ -21,8 +21,8 @@ const two=()=>[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w
 const four=()=>[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}];
 const isle1=()=>[{x:-2.9,y:2.3,w:2,h:1.8},{x:0,y:3.4,w:2,h:1.8},{x:2.9,y:2.7,w:2,h:1.8}];
 const LV=[
- {name:'First Kick',type:'stand',balls:3,tut:true,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
- {name:'Three Stands',type:'stand',balls:5,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
+ {name:'First Kick',type:'stand',balls:3,free:true,tut:true,panes:[{x:0,y:3,w:4.4,h:3.4}]},
+ {name:'Three Stands',type:'stand',balls:5,free:true,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
  {name:'Deep Frame',type:'field',field:'tunnel',balls:3,tunnel:{mx:3.5,zm:3,w0:3,h0:2.6,gap:.7,s1:3,rc:4.5,turn:120,s2:1},panes:[{x:0,y:1,w:1.3,h:1.1}]},
  {name:'First House',type:'house',H:5.2,G:2.3,W:7,balls:4,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Four Windows',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]},
@@ -197,7 +197,7 @@ function loadLevel(i){
   world.visible=!LVL.island;setNight(!!LVL.night);
   if(LVL.type==='house')buildHouse(LVL);else if(LVL.type==='greenhouse')buildGreenhouse(LVL);else if(LVL.type!=='field')buildStand(LVL);
   buildMech(LVL);armShutTrick(LVL);
-  ballsLeft=LVL.balls;used=0;won=false;
+  ballsLeft=LVL.free?1e9:LVL.balls;used=0;won=false;
   $('lvlNo').textContent='Level '+(level+1);
   drawBalls();spawnBall();updateHint();chips();
 }
@@ -221,6 +221,6 @@ function buildTestPanes(){
   movers.push((t,dt)=>panes.forEach(p=>{if(!p.broken){p.rt=0;return}p.rt=(p.rt||0)+dt;if(p.rt>2.5){p.rt=0;p.broken=false;p.mesh.visible=true;(p.extra||[]).forEach(m=>m.visible=true)}}));
 }
 const reloadLevel=()=>sandbox?loadSandbox():loadLevel(level);
-function drawBalls(){$('balls').classList.toggle('last',!sandbox&&!LVL.bonus&&!won&&ballsLeft===1);if(sandbox){$('balls').innerHTML='';return}$('balls').innerHTML=Array.from({length:LVL.balls},(_,i)=>'<i class="'+(i<LVL.balls-ballsLeft?'used':'')+'"></i>').join('')}
+function drawBalls(){$('balls').classList.toggle('last',!sandbox&&!LVL.bonus&&!won&&ballsLeft===1);if(sandbox||LVL.free){$('balls').innerHTML='';return}$('balls').innerHTML=Array.from({length:LVL.balls},(_,i)=>'<i class="'+(i<LVL.balls-ballsLeft?'used':'')+'"></i>').join('')}
 
 

@@ -141,7 +141,7 @@ function tick(dt,real){
   for(let i=tl.length-1;i>=0&&tl===timers;i--){tl[i].t-=real;if(tl[i].t<=0){const f=tl[i].f;tl.splice(i,1);f()}}
   if(failT>=0){failT+=real;placeMissed()}
   mechTick(dt);glareTick(real);
-  if(S.mode==='live'&&!cur&&!won&&ballsLeft>0&&!hopBusy()&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
+  if(isLive()&&!cur&&!won&&ballsLeft>0&&!hopBusy()&&!balls.some(b=>b.state==='fly')){spawnWait+=real;if(spawnWait>.22){spawnWait=0;spawnBall()}}else spawnWait=0;
   if(cur){cur.born+=real;const s=clamp(cur.born/.14,0,1);cur.m.scale.setScalar(s<1?s*(1.25-.25*s):1);cur.p.y=R+(1-s)*.5}
   for(let i=balls.length-1;i>=0;i--)if(!stepBall(balls[i],dt))balls.splice(i,1);
   for(let i=shards.length-1;i>=0;i--){const s=shards[i];if(s.rest)continue;

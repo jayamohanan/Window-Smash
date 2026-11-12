@@ -22,9 +22,9 @@ function showPreview(s){
 }
 const hidePreview=()=>prevDots.forEach(m=>m.visible=false);
 function point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top,t:performance.now()}}
-canvas.addEventListener('pointerdown',e=>{initAudio();$('panel').hidden=true;if(won){if(performance.now()-winAt>350)advance();return}if(S.mode==='live'){liveDown(e);return}if(!cur||won||cur.born<.12)return;try{canvas.setPointerCapture(e.pointerId)}catch(x){}drag={pts:[point(e)],id:e.pointerId}});
-canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){liveMove(e);return}drag.pts.push(point(e));if(drag.pts.length>120)drag.pts.splice(1,1);const s=shotFrom(drag);if(s.len>18)showPreview(s);else hidePreview()});
-function release(e){initAudio();if(!drag||e.pointerId!==drag.id)return;if(S.mode==='live'){drag=null;return}const d=drag;drag=null;hidePreview();const s=shotFrom(d);if(s.len<30||!cur)return;kick(s)}
+canvas.addEventListener('pointerdown',e=>{initAudio();$('panel').hidden=true;if(won){if(performance.now()-winAt>350)advance();return}if(isLive()){liveDown(e);return}if(!cur||won||cur.born<.12)return;try{canvas.setPointerCapture(e.pointerId)}catch(x){}drag={pts:[point(e)],id:e.pointerId}});
+canvas.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;if(isLive()){liveMove(e);return}drag.pts.push(point(e));if(drag.pts.length>120)drag.pts.splice(1,1);const s=shotFrom(drag);if(s.len>18)showPreview(s);else hidePreview()});
+function release(e){initAudio();if(!drag||e.pointerId!==drag.id)return;if(isLive()){if(drag.go)firePlus(drag);drag=null;return}const d=drag;drag=null;hidePreview();const s=shotFrom(d);if(s.len<30||!cur)return;kick(s)}
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',()=>{drag=null;hidePreview()});
 addEventListener('touchend',initAudio,{passive:true}); /* iOS only counts a finger lifting (not going down) as permission to start audio */
 /* Live swipe, modelled on the input observed in World Soccer Champions: the kick fires mid-drag, the ball flies forward on its own clock, and pointer movement steers it. */
@@ -35,7 +35,7 @@ function liveDown(e){
   if(!f&&(!cur||cur.born<.12))return;
   try{canvas.setPointerCapture(e.pointerId)}catch(x){}
   if(f){drag={id:e.pointerId,pts:[pt],last:pt,top:pt.y,steer:f};return}
-  const bp=ballPx();drag={id:e.pointerId,pts:[pt],last:pt,top:pt.y,armed:Math.hypot(pt.x-bp.x,pt.y-bp.y)<=bp.r*S.grab};
+  const bp=ballPx();drag={id:e.pointerId,pts:[pt],last:pt,top:pt.y,topX:pt.x,armed:Math.hypot(pt.x-bp.x,pt.y-bp.y)<=bp.r*S.grab};
 }
 /* Steering after the kick nudges the ball's velocity (aftertouch); the flight stays a real arc.
    Lift is budgeted per kick so a weak kick still falls short. */
@@ -46,14 +46,22 @@ function applySteer(b,dx,dy){
   const dv=clamp(-dy*gainHigh*S.lift/tr,-b.P-b.lift,b.P*.25-b.lift);b.lift+=dv;b.vn+=dv;
 }
 function liveMove(e){
-  const d=drag,pt=point(e);d.pts.push(pt);if(d.pts.length>120)d.pts.splice(0,1);d.top=Math.min(d.top,pt.y);
-  if(d.steer)d.steer.topY=Math.min(d.steer.topY,pt.y);
-  if(d.steer){if(d.steer.live&&d.steer.state==='fly')applySteer(d.steer,pt.x-d.last.x,pt.y-d.last.y);d.last=pt;return}
+  const d=drag,pt=point(e);d.pts.push(pt);if(d.pts.length>120)d.pts.splice(0,1);if(pt.y<d.top){d.top=pt.y;d.topX=pt.x}
+  if(d.steer){const b=d.steer;if(b.plus){d.last=pt;return} /* Live+: no aftertouch */
+    if(pt.y<b.topY)b.topY=pt.y;
+    if(b.live&&b.state==='fly')applySteer(b,pt.x-d.last.x,pt.y-d.last.y);d.last=pt;return}
+  if(d.go){const sp=Math.hypot(...Object.values(swipeVel(d)));d.go.pk=Math.max(d.go.pk,sp);
+    if(sp<d.go.pk*.3&&pt.t-d.go.t>40)firePlus(d);d.last=pt;return}
   if(cur&&cur.born>=.12){const bp=ballPx();
     if(!d.armed&&segDist(d.last,pt,bp)<=bp.r*S.grab)d.armed=true;
-    if(d.armed&&pt.y<bp.y&&Math.hypot(pt.x-bp.x,pt.y-bp.y)>=bp.r*S.ring)kickLive(bp,pt,d);}
+    if(d.armed&&pt.y<bp.y&&Math.hypot(pt.x-bp.x,pt.y-bp.y)>=bp.r*S.ring){
+      if(S.mode==='livep'){const sv=swipeVel(d);d.go={t:pt.t,pk:Math.hypot(sv.x,sv.y)};setTimeout(()=>{if(drag===d&&d.go)firePlus(d)},400)}
+      else kickLive(bp,pt,d);}}
   d.last=pt;
 }
+/* Live+: the kick fires at the end of the flick (finger lifts, nearly stops, or 0.4 s after leaving the ring), so the
+   whole swipe is known: its peak speed decides kick vs dribble, its highest point decides where the ball goes. */
+function firePlus(d){const g=d.go;d.go=null;if(!cur||won)return;kickLive(ballPx(),{x:d.topX,y:d.top},d,g.pk)}
 /* Swipe velocity in px/s over the last ~100 ms of the drag. */
 function swipeVel(d){
   const p=d.pts,e=p[p.length-1];let a=e;
@@ -62,14 +70,18 @@ function swipeVel(d){
 }
 /* Live kick: swipe speed sets power, swipe direction sets heading, then gravity takes over.
    Forward speed is scaled by D/13 so flight time and arc height match on every screen shape. */
-function kickLive(bp,pt,d){
+function kickLive(bp,pt,d,pk){
   const b=cur;cur=null;b.live=true;b.state='fly';b.age=0;
-  const sv=swipeVel(d),spd=Math.hypot(sv.x,sv.y)/Math.min(W_,H_);
-  const P=clamp(6+spd*S.power,6,32);
-  let dx=sv.x,dy=sv.y;if(spd<.2||dy>-1){dx=pt.x-bp.x;dy=pt.y-bp.y}
+  const sv=swipeVel(d),spd=(pk===undefined?Math.hypot(sv.x,sv.y):pk)/Math.min(W_,H_);
+  let P=clamp(6+spd*S.power,6,32);
+  /* Live+: any real flick is a full kick; only a slow push stays a weak dribble (short ramp between them). */
+  const plus=S.mode==='livep';
+  if(plus){const f=S.flick,u=clamp((spd-f*.6)/(f*.4),0,1),s=u*u*(3-2*u);P=lerp(Math.min(P,13),S.pFull,s)}
+  let dx=sv.x,dy=sv.y;if(plus||spd<.2||dy>-1){dx=pt.x-bp.x;dy=pt.y-bp.y}
   const rowY=toScreen(0,2.8,ZF)[1],k=(bp.y-rowY)/Math.max(1,-dy);
   let xw=0;ndc.set((bp.x+dx*k)/W_*2-1,1-rowY/H_*2);ray.setFromCamera(ndc,camera);if(ray.ray.intersectPlane(plane,hitV))xw=clamp(hitV.x,-16,16);
-  b.P=P;b.lift=0;b.vn=P*S.loft;b.baseY=bp.y;b.topY=Math.min(d.top,pt.y+Math.min(0,sv.y)*.08);b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
+  b.P=P;b.lift=0;b.plus=plus;b.vn=P*(plus?S.loftP:S.loft);b.baseY=bp.y;b.topY=Math.min(d.top,pt.y+Math.min(0,sv.y)*.08);
+  if(plus){b.topY=pt.y;b.topX=pt.x;b.bx0=bp.x}b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
   balls.push(b);d.steer=b;
   ballsLeft--;used++;drawBalls();sfx.kick();
   for(let i=0;i<14;i++)dust.emit(rnd(-.3,.3),.1,D+rnd(-.2,.2),rnd(-1.8,1.8),rnd(.6,2.2),rnd(-.5,1.5),rnd(.25,.5),[.72,.6,.42],3);
@@ -81,7 +93,7 @@ function kickLive(bp,pt,d){
 const ceilPlane=new T.Plane(new T.Vector3(0,0,1),0);
 function ceilingY(b){
   const sx=toScreen(b.p.x,b.p.y,b.p.z)[0];ceilPlane.constant=-b.p.z;
-  const ty=b.baseY-(b.baseY-b.topY)*S.reach;ndc.set(sx/W_*2-1,1-ty/H_*2);ray.setFromCamera(ndc,camera);
+  const ty=b.plus?b.baseY-(b.baseY-b.topY)*S.reachP:b.baseY-(b.baseY-b.topY)*S.reach;ndc.set(sx/W_*2-1,1-ty/H_*2);ray.setFromCamera(ndc,camera);
   return ray.ray.intersectPlane(ceilPlane,hitV)?hitV.y:null;
 }
 /* Per-frame forces for a live ball. b.vn is the free (uncapped) vertical speed under gravity;
@@ -98,11 +110,17 @@ function flyLive(b,dt){
       const tx=p.x+p.vx*tr,ty=p.y,q=Math.hypot(px-tx,py-ty);
       if(q<Math.hypot(p.w,p.h)/2+1.3&&q<bd){bd=q;best=p;bt=tr;bx=tx-px;by=ty-py}});
     if(best){const k=1-Math.exp(-S.snap*7*dt),t=Math.max(bt,.1);if(!wind)v.x+=bx*k/t;b.vn+=by*k/t}}
+  /* Live+: the ball stays on the screen line from its start through the finger's highest point, so it flies where you
+     swiped at any depth (near stands, the wall, the far carousel). After its peak it keeps the screen x it had there. */
+  if(b.plus&&v.z<-.5){const s0=toScreen(b.p.x,b.p.y,b.p.z),s1=toScreen(b.p.x+1,b.p.y,b.p.z),ux=b.topX-b.bx0,uy=Math.min(-1,b.topY-b.baseY);
+    b.sy=Math.min(b.sy===undefined?b.baseY:b.sy,s0[1]); /* highest screen point so far: after the peak the ball keeps that screen x */
+    const want=b.bx0+ux/uy*(b.sy-b.baseY),dxw=(want-s0[0])/Math.max(1e-3,s1[0]-s0[0]);v.x=clamp(lerp(v.x,dxw/Math.max(dt,.008),.25),-30,30)}
   const yMax=ceilingY(b),gap=yMax===null?1e9:yMax-b.p.y;
-  v.y=Math.min(b.vn,gap>0?Math.sqrt(2*g*gap):0);
+  /* Live+: the ceiling rises with distance (it is a line on screen), so the ball may brake harder toward it to keep up. */
+  v.y=Math.min(b.vn,gap>0?Math.sqrt(2*g*(b.plus?S.capK:1)*gap):0);
   /* At the ceiling, drop the leftover climb so the ball peaks there and falls at once (no flat hover).
      Below the ceiling vn is kept, so a finger that is still rising can still lift the ball. */
-  if(gap<.05)b.vn=Math.min(b.vn,v.y);
+  if(gap<.05&&!(b.plus&&S.glideP))b.vn=Math.min(b.vn,v.y); /* Live+ glide (dev toggle): rides the screen line until vn runs out */
   b.vn-=g*dt;
   b.a.set(-c*sp*v.x,-g,-c*sp*v.z);
   b.spin.set(0,1,0).cross(v).normalize();
