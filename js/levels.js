@@ -8,8 +8,10 @@
    Level fields: board = sliding barrier, hedges = soft blockers, wind = sideways push (m/s²), tut = hand tutorial,
    mill = windmill on the house front, gantry = overhead beam, island = two-step island hop (first = the glass frames on the near island; panes = the house on the far one), bonus = no fail (greenhouse),
    switch = bullseye that unlocks shutter:{lock:true} windows, cat = a cat on one window's sill blocks it and hops between windows, pads = bounce pads, gwall = garden wall, night = lighthouse night (memory level), layout = function returning fresh panes on each attempt, towers = mansion towers, wheel = solid disc with one gap on the house front.
-   type:'field' = free-standing panes placed by a builder (field:'stack' | 'carousel' | 'behind' | 'aquarium').
+   type:'field' = free-standing panes placed by a builder (field:'stack' | 'carousel' | 'behind' | 'aquarium' | 'tunnel').
+   tunnel:{y,w,h,zm,ze} = deep frame: a wooden tunnel from z zm (mouth) to ze (glass); a ball that enters is carried to the glass.
    carousel.items: {empty:true} = frame only, {inner:true} = mesh outside, glass facing the centre; inner = windows standing inside the circle.
+   spin:[pane indexes] (house) = spin boards on poles in front of those windows; type field + field:'flip' + flip:{bar,w,h,items,win|glass} = panels on a bar that tip over when kicked high.
    awn:true (house pane) = wire mesh over it, awning below that springs the ball up into the gap; revolver = revolving door with 4 glass wings. */
 const GX=[-4.5,-1.5,1.5,4.5];
 const ghPanes=()=>[...GX.map(x=>({x,y:1.7,w:2.8,h:2.2})),...GX.map(x=>({x,y:4,w:2.8,h:2.2})),...GX.map(x=>({x,y:2.9,w:2.8,h:4.4,back:true})),...GX.map(x=>({x,w:2.8,h:2.3,roof:true}))];
@@ -19,25 +21,29 @@ const isle1=()=>[{x:-2.9,y:2.3,w:2,h:1.8},{x:0,y:3.4,w:2,h:1.8},{x:2.9,y:2.7,w:2
 const LV=[
  {name:'First Kick',type:'stand',balls:3,tut:true,panes:[{x:0,y:3.1,w:3.1,h:2.6}]},
  {name:'Three Stands',type:'stand',balls:5,panes:[{x:-5.4,y:2.3,w:2.3,h:2},{x:0,y:4.4,w:2.3,h:2},{x:5.4,y:3.2,w:2.3,h:2}]},
+ {name:'Deep Frame',type:'field',field:'tunnel',balls:3,tunnel:{y:3.2,w:3.6,h:3.2,zm:4,ze:-4},panes:[{x:0,y:3.2,w:3.6,h:3.2}]},
  {name:'First House',type:'house',H:5.2,G:2.3,W:7,balls:4,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Four Windows',type:'house',H:8.2,G:2.2,W:7,balls:6,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:-3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6}]},
- {name:'Stacked Windows',type:'field',field:'stack',balls:10,layout:()=>stackPanes(),panes:[]},
+ {name:'Stacked Windows',type:'field',field:'stack',balls:5,layout:()=>stackPanes(),panes:[]},
  {name:'Sliding Board',type:'house',H:5.2,G:2.3,W:7,balls:5,board:{z:2.4,w:6,amp:4.2,speed:1.25},panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Shutters',type:'house',H:5.2,G:2.3,W:7,balls:5,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,shutter:{phase:0}},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,shutter:{phase:.5}}]},
  {name:'Boarded Up',type:'house',H:5.2,G:2.3,W:7,balls:6,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,armor:1},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,hp:2}]},
  {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:6,porch:true,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
    panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{sky:true,w:2.2,h:1.8}]},
  {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:7,wind:7,panes:four()},
+ {name:'Spin Board',type:'house',H:5.2,G:2.3,W:7,balls:5,spin:[0,1],panes:two()},
  {name:'Bonus: Greenhouse',type:'greenhouse',bonus:true,balls:12,panes:ghPanes()},
  {name:'Windmill',type:'house',H:5.2,G:2.3,W:7,balls:5,mill:{x:0,y:4.4,z:1.6,len:4.2,speed:.9},panes:[{x:-3.4,y:2.8,w:2.5,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.4,y:2.8,w:2.5,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Rail Riders',type:'stand',balls:5,gantry:{x:8,y:7.2},panes:[{x:0,y:2.4,w:2.5,h:2.1,rail:{amp:4.8,speed:.95}},{x:0,y:5.3,w:2.3,h:1.9,hang:true,rail:{amp:4.8,speed:1.35,phase:Math.PI}}]},
  {name:'Carousel',type:'field',field:'carousel',balls:10,carousel:{r:5.6,z:-1.5,speed:.4,items:[{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,hp:2},{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,hp:2},{y:2.8,w:2.6,h:2.3}]},panes:[]},
- {name:'{y:2.8,w:2.6,h:2.3nner Ring',type:'field',field:'carousel',balls:9,carousel:{r:5.6,z:-1.5,speed:.36,items:[{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true},{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true},{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true}]},inner:[{x:-2.6,y:2.4,z:-1.5,w:2.1,h:1.9},{x:0,y:3.4,z:-1.5,w:2.1,h:1.9},{x:2.6,y:2.4,z:-1.5,w:2.1,h:1.9}],panes:[]},
+ {name:'Inner Ring',type:'field',field:'carousel',balls:9,carousel:{r:5.6,z:-1.5,speed:.36,items:[{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true},{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true},{y:2.8,w:2.6,h:2.3},{y:2.8,w:2.6,h:2.3,empty:true}]},inner:[{x:-2.6,y:2.4,z:-1.5,w:2.1,h:1.9},{x:0,y:3.4,z:-1.5,w:2.1,h:1.9},{x:2.6,y:2.4,z:-1.5,w:2.1,h:1.9}],panes:[]},
  {name:'Mind the Cat',type:'house',H:8.2,G:2.2,W:7,balls:7,cat:true,panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:3.9,y:2.5,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},
    {x:-4.6,y:6.1,w:2.2,h:2.1,prop:'vase',wall:0xe3d6f2},{x:0,y:6.1,w:2.2,h:2.1,prop:'cake',wall:0xffe6b0},{x:4.6,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xd9efc6}]},
  {name:'Aquarium',type:'field',field:'aquarium',balls:9,panes:[]},
  {name:'Island Hop',type:'house',H:5.2,G:2.3,W:7,balls:9,island:true,first:isle1(),panes:two()},
  {name:'Stormy Mill',type:'house',H:8.2,G:2.2,W:7,balls:8,wind:-6,mill:{x:0,y:4.6,z:1.6,len:4.5,speed:1.1},panes:four()},
+ {name:'Tip Over',type:'field',field:'flip',balls:8,flip:{bar:{y:3,z:2.5},w:2.7,h:2.5,items:[{x:-4.6},{x:0},{x:4.6}],win:{y:4.35,z:-1,w:2,h:1.8}},panes:[]},
+ {name:'Flip Side',type:'field',field:'flip',balls:8,flip:{bar:{y:3.1,z:1.5},w:2.6,h:2.5,items:[{x:-4.4},{x:0},{x:4.4}],glass:true},panes:[]},
  {name:'Through the Gap',type:'house',H:8.2,G:2.2,W:7,balls:8,wheel:{x:0,y:4.6,z:1.6,r:6.2,gap:Math.PI/2,speed:.45},panes:four()},
  {name:'Revolving Door',type:'house',H:5.2,G:2.3,W:7,balls:9,revolver:{z:1.5,r:1.2},panes:two()},
  {name:'Bullseye',type:'house',H:5.2,G:2.3,W:7,balls:5,switch:{x:0,y:6.1,z:.3},panes:two().map(p=>Object.assign(p,{shutter:{lock:true}}))},
@@ -72,7 +78,7 @@ function clearLevel(){
   spark.clear();dust.clear();timers=[];$('win').hidden=true;$('again').hidden=true;$('retryBtn').hidden=false;$('bubble').hidden=true;$('fail').hidden=true;$('wipe').classList.remove('on');
   failing=false;failT=-1;retrying=false;leaving=false;confetti.length=0;fctx.clearRect(0,0,W_,H_);
   returned.forEach(r=>scene.remove(r.m));returned.length=0;inBalls=0;
-  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];catS=null;wheel=null;behind=null;revolver=null;pond=null;camOff.set(0,0,0);spot.visible=true;
+  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];padWall=null;tunnel=null;hinges=[];catS=null;wheel=null;behind=null;revolver=null;pond=null;camOff.set(0,0,0);spot.visible=true;
 }
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
@@ -121,13 +127,17 @@ function buildHouse(L){
   const n=new T.Group();
   const body=box(1,1.25,.55,0x3f6fc2,0,1.5,0,n);
   box(.36,.9,.42,0x383f55,-.24,.45,0,n);box(.36,.9,.42,0x383f55,.24,.45,0,n);
-  const head=new T.Mesh(new T.SphereGeometry(.47,16,12),mat(0xf0bd93));head.position.y=2.55;head.castShadow=true;n.add(head);
-  const mouth=box(.72,.12,.08,0x2b2230,0,2.45,.44,n,false),brows=[];
-  [-1,1].forEach(s=>{const e=box(.34,.09,.06,0x2b2230,s*.2,2.8,.43,n,false);e.rotation.z=s*-.42;brows.push({e,s});const y=new T.Mesh(new T.SphereGeometry(.07,8,6),bmat(0x2b2230));y.position.set(s*.18,2.66,.45);n.add(y)});
-  const nose=new T.Mesh(new T.SphereGeometry(.12,8,6),mat(0xe59a78));nose.position.set(0,2.56,.5);n.add(nose);
-  box(.28,1,.3,0x3f6fc2,-.65,1.5,0,n);
-  const arm=new T.Group();arm.position.set(.62,2,0);n.add(arm);box(.28,1,.3,0x3f6fc2,0,.45,0,arm);const fist=new T.Mesh(new T.SphereGeometry(.24,10,8),mat(0xf0bd93));fist.position.y=1.05;arm.add(fist);
-  n.position.set(0,0,-.6);n.visible=false;g.add(n);Object.assign(n.userData,{arm,head,mouth,brows,smug:false});grump=n;
+  /* head group: the face moves with the head (positions inside are relative to the head centre at y 2.55) */
+  const head=new T.Group();head.position.y=2.55;n.add(head);
+  const skull=new T.Mesh(new T.SphereGeometry(.47,16,12),mat(0xf0bd93));skull.castShadow=true;head.add(skull);
+  const mouth=box(.72,.12,.08,0x2b2230,0,-.1,.44,head,false),brows=[];
+  [-1,1].forEach(s=>{const e=box(.34,.09,.06,0x2b2230,s*.2,.25,.43,head,false);e.rotation.z=s*-.42;brows.push({e,s});const y=new T.Mesh(new T.SphereGeometry(.07,8,6),bmat(0x2b2230));y.position.set(s*.18,.11,.45);head.add(y)});
+  const nose=new T.Mesh(new T.SphereGeometry(.12,8,6),mat(0xe59a78));nose.position.set(0,.01,.5);head.add(nose);
+  /* arms pivot at the shoulders: the right one is raised (fist up / finger wag), the left one hangs */
+  const hand=(par,y)=>{const f=new T.Mesh(new T.SphereGeometry(.24,10,8),mat(0xf0bd93));f.position.y=y;par.add(f)};
+  const arm2=new T.Group();arm2.position.set(-.62,2,0);n.add(arm2);box(.28,1,.3,0x3f6fc2,0,-.45,0,arm2);hand(arm2,-1.02);
+  const arm=new T.Group();arm.position.set(.62,2,0);n.add(arm);box(.28,1,.3,0x3f6fc2,0,.45,0,arm);hand(arm,1.05);
+  n.position.set(0,0,-.6);n.visible=false;g.add(n);Object.assign(n.userData,{arm,arm2,head,mouth,brows,smug:false});grump=n;
 }
 function standLegs(p,sg){[-1,1].forEach(s=>{box(.26,p.y-p.h/2,.26,0x8a5f3b,s*(p.w/2+.1),(p.y-p.h/2)/2,.1,sg);box(.26,.14,1.8,0x704b2c,s*(p.w/2+.1),.07,.1,sg)})}
 /* Each stand is its own group so rail windows can slide (p.x follows; p.vx is used by aim help). */
@@ -146,7 +156,7 @@ function loadLevel(i){
   panes=(LVL.layout?LVL.layout():LVL.panes).map(p=>Object.assign({},p));lt=0;wind=LVL.wind||0;
   world.visible=!LVL.island;setNight(!!LVL.night);
   if(LVL.type==='house')buildHouse(LVL);else if(LVL.type==='greenhouse')buildGreenhouse(LVL);else if(LVL.type!=='field')buildStand(LVL);
-  buildMech(LVL);
+  buildMech(LVL);armShutTrick(LVL);
   ballsLeft=LVL.balls;used=0;won=false;
   $('lvlNo').textContent='Level '+(level+1);
   drawBalls();spawnBall();updateHint();chips();

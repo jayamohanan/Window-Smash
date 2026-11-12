@@ -33,7 +33,6 @@ function showFail(){
   $('failLeft').textContent=left+(left>1?' windows':' window')+' left';
   $('missed').innerHTML=panes.filter(p=>!p.broken).map(()=>'<i></i>').join('');
   $('balls').classList.remove('last');$('fail').hidden=false;failT=0;placeMissed();sfx.lost();
-  if(grump&&!near){const u=grump.userData;u.smug=true;u.brows.forEach(a=>{a.e.rotation.z=a.s*.28;a.e.position.y=2.88});u.mouth.rotation.z=.2;u.mouth.position.y=2.4;grumpT=0;grump.visible=true}
 }
 function retry(){if(failT<.3||retrying)return;retrying=true;$('wipe').classList.add('on');later(.2,()=>loadLevel(level))}
 /* Retry button: restart the level at any time, with a full set of balls (same quick fade) */
@@ -86,7 +85,7 @@ function stepBall(b,dt){
     const z0=b.p.z;_pp.copy(b.p);awnStep(b,h);b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
     if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0))b.state='passed'}
-    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b,_pp);hitObs(b);padHit(b);catHit(b);wheelHit(b)}
+    if(b.state!=='inside'&&b.state!=='dead'){skyHit(b,_pp);tunnelHit(b);shutTrickStep(b);hitObs(b);padHit(b);catHit(b);wheelHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
     if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;if(pond&&b.floor===undefined&&pondTouch(b))continue;b.p.y=fl;
@@ -160,8 +159,8 @@ function tick(dt,real){
   spark.step(dt);dust.step(dt);
   clouds.forEach(c=>{c.position.x+=c.userData.s*real;if(c.position.x>110)c.position.x=-110});
   if(grumpT>=0){grumpT+=real;const k=clamp(grumpT/.28,0,1),e=1-Math.pow(1-k,3);door.rotation.y=-1.75*e;grump.position.z=lerp(-.6,1.1,e);const u=grump.userData;
-    if(u.smug){grump.rotation.z=Math.sin(grumpT*3.2)*.045;u.head.rotation.z=Math.sin(grumpT*3.2)*.12;u.arm.rotation.z=-.05+Math.sin(grumpT*9)*.28} /* wagging a finger, pleased with himself */
-    else{grump.rotation.z=Math.sin(grumpT*22)*.05;u.arm.rotation.z=-.25+Math.sin(grumpT*28)*.38}
+    {const r=clamp(grumpT/.35,0,1),e=r*r*(3-2*r),bob=Math.sin(grumpT*5)*.05*e; /* both hands on his head, slowly shaking it: helpless */
+      u.arm.rotation.z=.31*e+bob;u.arm2.rotation.z=2.83*e-bob;u.head.rotation.y=Math.sin(grumpT*4.5)*.32*e;u.head.rotation.z=-Math.sin(grumpT*4.5)*.06*e}
     const s=toScreen(0,3.5,1.1),bb=$('bubble');bb.style.left=s[0]+'px';bb.style.top=s[1]+'px'}
   stepConfetti(real);
   shakeA=Math.max(0,shakeA-real*2.6);zoomK=Math.max(0,zoomK-real*3.2);focusK=Math.max(0,focusK-real*1.5);

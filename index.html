@@ -10,8 +10,24 @@
 
 <div id="stage">
   <div id="loader" role="status" aria-label="Loading">
-    <div class="ld-pane"><span class="ld-ball"></span><i></i><i></i><i></i></div>
-    <h1>Window Smash</h1>
+    <svg class="ld-pic" viewBox="0 0 160 128" width="160" height="128" aria-hidden="true">
+      <rect x="6" y="6" width="148" height="116" rx="3" fill="#bfe9ff"/>
+      <path d="M6 70 L62 6 H84 L6 96Z M6 116 L100 6 H108 L6 122Z" fill="#fff" opacity=".55"/>
+      <g fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M80 64 L58 44 L44 40 L12 14"/><path d="M80 64 L104 38 L118 34 L150 10"/><path d="M80 64 L118 70 L150 78"/>
+        <path d="M80 64 L98 94 L104 122"/><path d="M80 64 L60 92 L48 122"/><path d="M80 64 L44 70 L10 66"/><path d="M80 64 L84 30 L78 6"/>
+        <path d="M58 44 L62 30 M104 38 L112 52 M118 70 L126 92 M98 94 L120 100 M60 92 L36 100 M44 70 L36 48" stroke-width="1.6"/>
+        <path d="M80 30 Q106 34 112 56 Q118 84 96 94 Q72 104 56 88 Q42 70 54 46 Q64 32 80 30" stroke-width="1.8"/>
+      </g>
+      <rect x="6" y="6" width="148" height="116" rx="3" fill="none" stroke="#fff8e8" stroke-width="9"/>
+      <g transform="translate(80 64)">
+        <clipPath id="ldClip"><circle r="24"/></clipPath>
+        <circle r="24" fill="#faf9f3"/>
+        <g clip-path="url(#ldClip)" fill="#1f2634"><polygon points="0.0,-7.5 7.1,-2.3 4.4,6.1 -4.4,6.1 -7.1,-2.3"/><polygon points="0.0,-13.0 -7.1,-18.2 -4.4,-26.6 4.4,-26.6 7.1,-18.2"/><polygon points="12.4,-4.0 15.1,-12.4 23.9,-12.4 26.6,-4.0 19.5,1.2"/><polygon points="7.6,10.5 16.5,10.5 19.2,18.9 12.0,24.1 4.9,18.9"/><polygon points="-7.6,10.5 -4.9,18.9 -12.0,24.1 -19.2,18.9 -16.5,10.5"/><polygon points="-12.4,-4.0 -19.5,1.2 -26.6,-4.0 -23.9,-12.4 -15.1,-12.4"/><g stroke="#78808c" stroke-width="1.4"><line x1="0.0" y1="-7.5" x2="0.0" y2="-13.0"/><line x1="7.1" y1="-2.3" x2="12.4" y2="-4.0"/><line x1="4.4" y1="6.1" x2="7.6" y2="10.5"/><line x1="-4.4" y1="6.1" x2="-7.6" y2="10.5"/><line x1="-7.1" y1="-2.3" x2="-12.4" y2="-4.0"/></g></g>
+        <circle r="24" fill="none" stroke="#23304a" stroke-width="2.4"/>
+        <ellipse cx="-8" cy="-10" rx="7" ry="4" fill="#fff" opacity=".7" transform="rotate(-35 -8 -10)"/>
+      </g>
+    </svg>
     <div class="ld-bar"><b></b></div>
   </div>
   <canvas id="gl"></canvas>

@@ -76,7 +76,9 @@ function smash(p,b,lh){
   ringAt(new T.Vector3(w.x,w.y,p.xf?w.z+.3:.3));
   freezeT=S.freeze/1000;slowT=.26;addShake(last?1:.62);zoomK=1;focus.set(w.x,w.y,0);focusK=1;
   sfx.glass();if(last)sfx.boom();
+  if(p.sky&&p.dark&&group.userData.wallTex){const t=group.userData.wallTex.clone();t.needsUpdate=true;t.repeat.set(p.w*.42,p.h*.42);p.dark.material=new T.MeshBasicMaterial({map:t,color:0xb8a898})} /* the wall under the porch shows through */
   if(p.sky){b.live=false;b.ghost=true;b.state='passed';b.age=0;b.a.set(0,-S.gravity,0);b.v.multiplyScalar(.4)}
+  else if(p.back&&!p.back.broken)chainTo(b,p.back);
   else if(p.stop)stopBall(b);
   else if(p.room){const dir=p.room.target.clone().sub(b.p).normalize();b.v.copy(dir).multiplyScalar(Math.max(13,speed*.6));b.a.set(0,0,0);b.state='inside';b.pane=p;inBalls++}
   else{b.v.multiplyScalar(.72);b.a.x=0;b.state='passed'}

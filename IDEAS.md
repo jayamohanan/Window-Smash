@@ -4,7 +4,7 @@ One place for every level idea, built or not. Queued code changes live in the bu
 
 Status: **Built** · **Planned** (in the next-build queue) · **Backlog** (not scheduled)
 
-## Built (levels 1–29)
+## Built (levels 1–30; level 3 Deep Frame was added on 2026-11-11, so the numbers below from 3 on are one lower than in the game)
 
 | # | Level | Idea |
 |---|-------|------|
@@ -40,20 +40,14 @@ Status: **Built** · **Planned** (in the next-build queue) · **Backlog** (not s
 
 ### Physics: things that move when hit (2026-11-11)
 Where you hit should matter. Each one needs an obvious visual clue, such as a big bolt at the pivot and a painted spot to hit.
-- **Spin board:** a wooden board facing the player, on a vertical pole through its middle, in front of the window. The ball pushes it like a door: near the edge it spins fast, near the pole it barely turns, dead centre it doesn't turn and the ball bounces back. The window shows while the board is edge-on, so the next kick must pass it then. Undecided: springs back to facing the player like a saloon door (preferred), or spins freely and slows down.
+- **Spin board** (**Built 2026-11-11** as level 12, stays-open version)**:** a wooden board facing the player, on a vertical pole through its middle, in front of the window. The ball pushes it like a door: near the edge it spins fast, near the pole it barely turns, dead centre it doesn't turn and the ball bounces back. The window shows while the board is edge-on, so the next kick must pass it then. Undecided: springs back to facing the player like a saloon door (preferred), or spins freely and slows down.
 - **Flip panels:** a row of panels on horizontal axles, wood on the front and glass on the back. Hit one to flip it, then smash the glass.
-- **Flip-down panels:** 3–4 heavy panels, each hinged along its bottom edge on its own horizontal bar, with the bars at different heights. Each panel starts standing up from its hinge, wood side facing the player and glass on the back. A kick near the top edge tips it over backwards: it rotates 180° around the x axis and ends up hanging below the hinge with the glass facing the player. Then smash the glass. A kick near the hinge barely moves it, and it settles back upright. Once flipped it stays down, so there's no timing. Bars need enough vertical spacing that a hanging panel doesn't cover the panel below.
+- **Flip-down panels** (**Built 2026-11-11** as level 22 Tip Over, uncovers windows behind; level 23 Flip Side, glass on the back)**:** 3–4 heavy panels, each hinged along its bottom edge on its own horizontal bar, with the bars at different heights. Each panel starts standing up from its hinge, wood side facing the player and glass on the back. A kick near the top edge tips it over backwards: it rotates 180° around the x axis and ends up hanging below the hinge with the glass facing the player. Then smash the glass. A kick near the hinge barely moves it, and it settles back upright. Once flipped it stays down, so there's no timing. Bars need enough vertical spacing that a hanging panel doesn't cover the panel below.
 - **Dominoes:** a line of tall planks. Knock over the first and the last one falls through the window.
 - **Tyre swing:** a tyre on a rope hanging in front of the window. Knock it aside to clear the view, or thread the ball through the hole for a skill shot.
 
 ### Indirect hits (2026-11-11)
 The puzzle is discovering what to hit. Bounces can be faked to be reliable, as long as they look right.
-
-### Story: the owner's defences (under discussion)
-- The house owner is the running rival. Before a level that brings in something new, he shows a thought bubble with a picture of his next defence (bushes, shutters, cat, windmill…), smug that this time we'll fail. When the level is won, he reacts angrily.
-- Show the bubble only when a new mechanic arrives, not before every level. Keep it to about 2 s, picture only, tap to skip.
-- Different scenes: he **moves away to escape us**, and we follow. That covers a new house, the island, the lighthouse, and finally vehicles ("he's leaving town" by car, then ship, then plane).
-- Public-object levels (lamp posts, bulb posts) don't fit this story well. Keep them as bonus or side levels without him.
 
 ### Earlier brainstorms
 - **Teammate pass:** a teammate stands ahead (any sideways position). Kick to them and they auto-kick at the window. Variant: they head it.
@@ -65,3 +59,4 @@ The puzzle is discovering what to hit. Bounces can be faked to be reliable, as l
 ### Rejected
 - Small fans near the ball: they would block every shot.
 - Per-level swipe-reach multiplier: feels like cheating.
+- Owner story (rivalry, defences, yard sign, story lines): built on a branch on 2026-11-11, seen and deleted by the user.
