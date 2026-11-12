@@ -50,6 +50,7 @@ function buildMech(L){
   if(L.island)buildIslands(L);
   if(L.field==='stack')buildStacks(L);else if(L.field==='carousel')buildCarousel(L);else if(L.field==='behind')buildBehind(L);else if(L.field==='aquarium')buildAquarium(L);else if(L.field==='tunnel')buildTunnel(L);else if(L.field==='flip')buildFlips(L);
   if(L.revolver)buildRevolver(L.revolver);
+  if(L.garage)buildGarage(L);
   panes.forEach(p=>{if(p.awn)buildAwning(p)});
   panes.forEach(p=>{if(p.shutter)buildShutter(p);if(p.armor)buildBoards(p);if(p.hp>1)buildWired(p)});
   if(L.mill)buildMill(L.mill);
@@ -389,30 +390,32 @@ function fishMesh(col){const f=new T.Group(),b=new T.Mesh(new T.SphereGeometry(.
   const e=new T.Mesh(new T.SphereGeometry(.035,6,4),bmat(0x23304a));e.position.set(.12,.04,.07);f.add(e);f.userData.tail=tl;return f}
 function buildAquarium(L){
   /* level with the house walls, compartments about house-window size: the aquarium is the variety, not tight aim */
-  const g=group,cx=0,cz=0,rx=7.6,rz=3.9,yb=1.2,cw=2.2,ch=1.6,gp=.22,fz=cz+.62,TW=3*cw+2*gp+.7;
+  /* 1.5x size (2026-11-12): compartments 3.3x2.4; the glass is clearer than house glass so the fish show */
+  const g=group,cx=0,cz=0,rx=10.4,rz=5,yb=1.2,cw=3.3,ch=2.4,gp=.33,fz=cz+.62,TW=3*cw+2*gp+.7,FS=1.5;
+  const aqGlass=glassMat.clone();aqGlass.opacity=.38;
   const wt=waterTex.clone();wt.needsUpdate=true;wt.repeat.set(5,2.6);
   const water=new T.Mesh(new T.CircleGeometry(1,56),new T.MeshLambertMaterial({map:wt}));water.scale.set(rx,rz,1);water.rotation.x=-Math.PI/2;water.position.set(cx,.025,cz);water.receiveShadow=true;g.add(water);
   const rim=new T.Mesh(new T.RingGeometry(1,1.05,56),mat(0xbfb3a0));rim.scale.set(rx,rz,1);rim.rotation.x=-Math.PI/2;rim.position.set(cx,.035,cz);g.add(rim);
-  addOb(box(3.2,yb,1.4,0xbfb3a0,cx,yb/2,cz,g),'wall');
+  addOb(box(4.8,yb,1.4,0xbfb3a0,cx,yb/2,cz,g),'wall');
   /* the tank: back, sides, sand, lid; one solid body behind the glass */
   const top=yb+.15+2*ch+gp+.6;
   box(TW,top-yb,.1,0x2f7fb0,cx,(top+yb)/2,cz-.62,g);[-1,1].forEach(s=>box(.14,top-yb,1.3,0x23304a,cx+s*(TW/2-.05),(top+yb)/2,cz,g));
   box(TW,.15,1.3,0xe8d29a,cx,yb+.08,cz,g);box(TW+.2,.22,1.5,0x23304a,cx,top+.1,cz,g);
   const body=box(TW-.2,top-yb,1.15,0x2f7fb0,cx,(top+yb)/2,cz-.06,g,false);body.visible=false;addOb(body,'wall');
-  for(let i=0;i<10;i++){const wd=box(.09,rnd(.6,1.4),.09,0x3f8f3e,cx+rnd(-TW/2+.4,TW/2-.4),yb+.6,cz-.45,g,false);wd.rotation.z=rnd(-.2,.2)}
+  for(let i=0;i<14;i++){const wd=box(.09,rnd(.9,2.1),.09,0x3f8f3e,cx+rnd(-TW/2+.4,TW/2-.4),yb+.6,cz-.45,g,false);wd.rotation.z=rnd(-.2,.2)}
   pond={cx,cz,rx,rz,fish:[]};
   const cols=[0xff8a1f,0xffc53a,0xf35f7d];
   for(let r=0;r<2;r++)for(let k=0;k<3;k++){const p={x:cx+(k-1)*(cw+gp),y:yb+.25+ch/2+r*(ch+gp),w:cw,h:ch,stop:true},x=p.x,y=p.y;
-    freeStand(p,new T.Vector3(x,y,fz));panes.push(p);
-    const wm=new T.Mesh(new T.BoxGeometry(cw+.1,ch+.1,1.1),new T.MeshBasicMaterial({color:0x53bdf0,transparent:true,opacity:.42,depthWrite:false}));wm.position.set(x,y,cz-.02);g.add(wm);p.water=wm;
-    p.fishes=[0,1].map(j=>{const f=fishMesh(cols[(r*3+k+j)%3]);f.scale.setScalar(1.3);f.position.set(x+rnd(-.5,.5),y+rnd(-.35,.35),cz+rnd(-.2,.3));g.add(f);return{f,ph:rnd(0,6),x0:x,state:'tank'}})}
+    freeStand(p,new T.Vector3(x,y,fz));p.mesh.material=aqGlass;panes.push(p);
+    const wm=new T.Mesh(new T.BoxGeometry(cw+.1,ch+.1,1.1),new T.MeshBasicMaterial({color:0x53bdf0,transparent:true,opacity:.26,depthWrite:false}));wm.position.set(x,y,cz-.02);g.add(wm);p.water=wm;
+    p.fishes=[0,1].map(j=>{const f=fishMesh(cols[(r*3+k+j)%3]);f.scale.setScalar(1.3*FS);f.position.set(x+rnd(-.5,.5)*FS,y+rnd(-.35,.35)*FS,cz+rnd(-.2,.3));g.add(f);return{f,ph:rnd(0,6),x0:x,state:'tank'}})}
   movers.push((t,dt)=>{wt.offset.set(t*.012,t*.006);
     panes.forEach(p=>{
       if(p.broken&&!p.spilled){p.spilled=true;p.drain=0;for(let i=0;i<70;i++)spark.emit(p.x,p.y,fz,rnd(-3,3),rnd(-1,4),rnd(1,5),rnd(.4,.9),[.3,.65,1],12);sfx.splash();
         p.fishes.forEach(o=>{o.state='fall';o.v=new T.Vector3(rnd(-1.4,1.4),rnd(1,2.6),rnd(.8,2))})}
       if(p.drain!==undefined&&p.drain<1){p.drain=Math.min(1,p.drain+dt*2.2);p.water.scale.y=Math.max(.001,1-p.drain);p.water.position.y=p.y-(ch+.1)/2*p.drain}
       p.fishes.forEach(o=>{const f=o.f;
-        if(o.state==='tank'){f.position.x=o.x0+Math.sin(t*.9+o.ph)*.62;f.rotation.y=Math.cos(t*.9+o.ph)>0?0:Math.PI;f.userData.tail.rotation.y=Math.sin(t*10+o.ph)*.4}
+        if(o.state==='tank'){f.position.x=o.x0+Math.sin(t*.9+o.ph)*.62*FS;f.rotation.y=Math.cos(t*.9+o.ph)>0?0:Math.PI;f.userData.tail.rotation.y=Math.sin(t*10+o.ph)*.4}
         else if(o.state==='fall'){o.v.y-=16*dt;f.position.addScaledVector(o.v,dt);f.rotation.z+=dt*8;
           if(f.position.y<=.08){f.position.y=.06;f.rotation.z=0;
             let a=Math.atan2((f.position.z-cz)/rz,(f.position.x-cx)/rx),q=Math.hypot((f.position.x-cx)/rx,(f.position.z-cz)/rz);
@@ -733,6 +736,7 @@ function aimTargets(){
     if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0});return} /* revolving door: lead the wing by ~0.55 s of turn */
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
   if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
+  if(garage&&!garage.pressed)a.push({x:garage.btn.x,y:garage.btn.y,z:.7,w:1.3,h:1.3,vx:0}); /* the garage button */
   hinges.forEach(hg=>{if(!hg.open&&hg.aim)a.push(hg.aim)}); /* a closed blocker: aim at the spot that swings it */
   if(tunnel&&!tunnel.p.broken)a.push({x:tunnel.x,y:tunnel.cy,z:tunnel.zm,w:tunnel.w,h:tunnel.h,vx:0}); /* deep frame: aim at the mouth */
   panes.forEach(p=>{if(p.awn&&!p.broken)a.push({x:p.x,y:p.y-p.h/2-.8,z:1,w:p.w+.7,h:.9,vx:0})}); /* awnings: aim at the awning, not the meshed glass */
@@ -755,6 +759,72 @@ function hitSwitch(b){
   sw.face.children.forEach((m,i)=>{if(m.material.color&&i%2===1)m.material=bmat(0x4fbf5a)});
   panes.forEach(p=>{if(p.shutter&&p.shutter.lock)p.unlockT=lt+.25});
 }
+
+/* ---------- garage: a closed roller shutter with a big push button beside it. Kick the button (any time) and the shutter
+   rolls up and the light comes on: an SUV is parked nose-in, and its big rear window is the last target. Nothing hints
+   at the car before that. The interior uses unlit materials like the rooms, dim until the light comes on. ---------- */
+let garage=null;
+const hazardTex=canvasTex(64,64,(c,w,h)=>{c.fillStyle='#ffc53a';c.fillRect(0,0,w,h);c.fillStyle='#23304a';c.save();c.translate(w/2,h/2);c.rotate(-Math.PI/4);for(let i=-5;i<=5;i++)c.fillRect(i*14,-w,7,w*2);c.restore()});
+function buildGarage(L){
+  const g=group,o=L.garage,gx=o.x,gw=o.w,gh=o.h,dp=6.2,x0=gx-gw/2,x1=gx+gw/2,zc=-.2-dp/2;
+  const ga={x:gx,w:gw,h:gh,f:1,shutY:0,openT:-1,pressed:false,btn:o.btn,lit:[],litDone:false};garage=ga;
+  const im=c=>{const m=new T.MeshBasicMaterial({color:c});m.userData.c=new T.Color(c);m.color.multiplyScalar(.2);ga.lit.push(m);return m};
+  /* inside: floor, back wall, side walls, ceiling, a shelf with paint tins, the ceiling light */
+  const fl=new T.Mesh(new T.PlaneGeometry(gw,dp),im(0x8d8f94));fl.rotation.x=-Math.PI/2;fl.position.set(gx,.015,zc);g.add(fl);
+  box(gw,gh,.1,im(0xb9b4aa),gx,gh/2,-.2-dp,g,false);
+  [x0,x1].forEach((x,i)=>addOb(box(.1,gh,dp,im(i?0xc9c3b6:0xa9a397),x+(i?-.05:.05),gh/2,zc,g,false),'wall'));
+  addOb(box(gw,.1,dp,im(0x9d978b),gx,gh+.05,zc,g,false),'wall');
+  box(.4,.06,2.2,im(0x7a5a3a),x0+.3,1.7,-3.4,g,false);
+  [[0xd9503f,-2.7],[0x2f6fd0,-3.2],[0xffc53a,-3.9]].forEach(([c,z])=>{const t=new T.Mesh(new T.CylinderGeometry(.13,.13,.3,12),im(c));t.position.set(x0+.3,1.88,z);g.add(t)});
+  box(1.8,.08,.16,im(0xfffbe8),gx,gh-.06,-2.8,g,false);
+  /* driveway in front */
+  const dw=new T.Mesh(new T.PlaneGeometry(gw+.4,4.2),mat(0xb8b4ac));dw.rotation.x=-Math.PI/2;dw.position.set(gx,.012,2.1);dw.receiveShadow=true;g.add(dw);
+  /* the shutter: slats roll up into the housing */
+  const bh=.28,n=Math.ceil(gh/bh)+1,bars=[];
+  for(let j=0;j<n;j++)bars.push(box(gw+.1,bh*1.08,.08,j%2?0xa7b0bf:0x95a0b2,gx,0,j%2?.27:.26,g,false)); /* overlapping, no gaps: nothing of the car may show through */
+  box(.7,.09,.09,0x3a3a44,0,-.02,.07,bars[0],false); /* handle on the bottom slat */
+  box(gw+.5,.5,.56,0x5f6b80,gx,gh+.25,.34,g);
+  [x0-.07,x1+.07].forEach(x=>box(.14,gh,.2,0x5f6b80,x,gh/2,.24,g));
+  /* the push button: hazard plate, collar, red dome */
+  const B=o.btn,bg=new T.Group();bg.position.set(B.x,B.y,.16);g.add(bg);
+  box(1.3,1.3,.1,0x23304a,0,0,.05,bg);
+  const plate=new T.Mesh(new T.PlaneGeometry(1.16,1.16),new T.MeshLambertMaterial({map:hazardTex}));plate.position.z=.105;bg.add(plate);
+  const col=new T.Mesh(new T.CylinderGeometry(.42,.46,.2,24),mat(0x23304a));col.rotation.x=Math.PI/2;col.position.z=.2;bg.add(col);
+  const dome=new T.Mesh(new T.SphereGeometry(.36,20,12,0,Math.PI*2,0,Math.PI/2),mat(0xe0352b));dome.rotation.x=Math.PI/2;dome.position.z=.3;bg.add(dome);
+  const solid=box(1.3,1.3,.5,0x000000,B.x,B.y,.41,g,false);solid.visible=false;addOb(solid,'metal');
+  obs[obs.length-1].hit=()=>{if(ga.pressed)return;ga.pressed=true;ga.openT=lt+.35;
+    dome.material=mat(0x4fbf5a);dome.position.z=.2;sfx.click();sfx.ding();later(.35,()=>sfx.rattle());addShake(.2);
+    for(let i=0;i<40;i++)spark.emit(B.x,B.y,.7,rnd(-4,4),rnd(-2,5),rnd(0,4),rnd(.3,.6),[1,.85,.3],6)};
+  /* the SUV, parked nose-in: z 0 of its group is the tailgate */
+  const car=new T.Group();car.position.set(gx,0,-.6);g.add(car);const red=0xc8372d,blk=0x23232b;
+  addOb(box(2.5,1,4.6,red,0,.85,-2.3,car),'metal');
+  box(2.62,.3,.28,blk,0,.5,.06,car);
+  [-1,1].forEach(s=>{box(.34,.52,.06,bmat(0xff3b30),s*1.02,1.08,.03,car,false);box(.34,.12,.06,bmat(0xffb03a),s*1.02,.76,.03,car,false);
+    box(.16,1.42,.18,red,s*1.13,2.05,-.12,car);addOb(box(.12,1.4,3.3,red,s*1.19,2.05,-1.85,car),'metal');
+    [-.95,-3.7].forEach(z=>{const w=new T.Mesh(new T.CylinderGeometry(.46,.46,.34,18),mat(blk));w.rotation.z=Math.PI/2;w.position.set(s*1.16,.46,z);car.add(w)})});
+  box(.9,.26,.04,0xf7f3e3,0,.86,.03,car,false);
+  box(2.42,.16,.2,red,0,2.74,-.16,car);addOb(box(2.4,.12,3.3,red,0,2.76,-1.85,car),'metal');
+  box(2.3,.08,.36,blk,0,2.86,-.16,car);
+  /* inside the cabin: dark lining, rear seat with headrests (stops a ball that goes through the broken window) */
+  const lin=new T.Mesh(new T.PlaneGeometry(2.3,1.4),bmat(0x1c1d26));lin.position.set(0,2.05,-3.45);car.add(lin);
+  addOb(box(2.2,.95,.45,0x34353f,0,1.82,-1.5,car),'wall');[-.6,.6].forEach(x=>box(.5,.32,.22,0x34353f,x,2.45,-1.5,car));
+  /* the rear window: a free pane, tilted back a little; locked (not hittable, not aimed at) until the shutter is up */
+  const p={x:0,y:0,w:2.1,h:1.3,locked:true,miss:{x:B.x,y:B.y,w:1.3,h:1.3}},sg=new T.Group();sg.position.set(0,2.02,-.12);sg.rotation.x=-.12;car.add(sg);
+  [[0,.69,2.26,.08],[0,-.69,2.26,.08],[-1.09,0,.08,1.3],[1.09,0,.08,1.3]].forEach(([x,y,w,h])=>box(w,h,.06,0x15151b,x,y,-.01,sg,false));
+  makePane(p,sg);p.mesh.position.z=.01;
+  const wip=box(1,.05,.04,0x15151b,-.1,-.5,.05,sg,false);wip.rotation.z=.22;p.extra=[wip];
+  p.sg=sg;syncPane(p);panes.push(p);ga.car=p;
+  movers.push(t=>{
+    let f=1;if(ga.openT>=0){const u=clamp((t-ga.openT)/1.6,0,1);f=1-u*u*(3-2*u)}
+    ga.f=f;const yb=gh-f*gh;ga.shutY=yb;
+    bars.forEach((m,j)=>{const cy=yb+(j+.5)*bh;m.position.y=cy;m.visible=f>.003&&cy-bh/2<gh});
+    if(p.locked&&f<.6)p.locked=false;
+    if(ga.openT>=0&&!ga.litDone){const k=clamp((t-ga.openT-.3)/.6,0,1),fk=k<1&&Math.sin(t*55)>.3?.35:1,v=.2+.8*k*fk;
+      ga.lit.forEach(m=>m.color.copy(m.userData.c).multiplyScalar(v));if(k>=1)ga.litDone=true}});
+}
+/* A ball reaching the wall plane in the garage opening: the shutter clangs it back, or it flies on inside. */
+function garageCross(b,x,y){const ga=garage;if(Math.abs(x-ga.x)>ga.w/2||y>ga.h)return false;
+  if(y>ga.shutY-R*.3)wallHit(b,'clang');return true}
 
 /* ---------- bounce pad: a ball that lands on it is launched at the lowest open window in its lane ---------- */
 function buildPad(o){

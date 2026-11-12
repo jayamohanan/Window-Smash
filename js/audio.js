@@ -2,19 +2,25 @@
 /* ---------- audio ---------- */
 let ac=null,master,noiseBuf;
 function buildAudio(){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;ac=new C();const comp=ac.createDynamicsCompressor();comp.connect(ac.destination);master=ac.createGain();master.gain.value=.8;master.connect(comp);noiseBuf=ac.createBuffer(1,ac.sampleRate,ac.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
-/* Called on every tap. iOS Safari can leave the context 'suspended' or 'interrupted' (or dead) after the phone is locked:
-   resume it, and if it still won't run, build a fresh one (inside the tap, so iOS allows it to start). */
+/* iOS Safari: after the phone is locked (or the tab hidden) the context often comes back saying 'running' but plays nothing,
+   or stays 'suspended'/'interrupted'. So once the page has been hidden, the next tap throws the old context away and builds
+   a fresh one inside that tap (iOS lets a context start only from a gesture), plus a silent blip to unlock output. */
+let audioStale=false;
+function unlockBlip(){try{const b=ac.createBuffer(1,1,ac.sampleRate),s=ac.createBufferSource();s.buffer=b;s.connect(ac.destination);s.start(0)}catch(e){}}
 function initAudio(){
-  if(!ac){buildAudio();return}
+  if(!ac||audioStale){audioStale=false;if(ac){const o=ac;ac=null;try{o.close()}catch(e){}}buildAudio();if(!ac)return;unlockBlip()}
   if(ac.state==='running')return;
-  const old=ac;let p=null;try{p=old.resume()}catch(e){}
-  const rebuild=()=>{if(ac!==old||ac.state==='running')return;try{old.close()}catch(e){}ac=null;buildAudio();try{ac&&ac.resume()}catch(e){}};
-  if(p&&p.then)p.then(()=>{if(old.state!=='running')rebuild()},rebuild);else rebuild();
-  setTimeout(rebuild,400); /* a resume that never settles counts as failed */
+  const cur=ac;try{const p=cur.resume();if(p&&p.then)p.then(()=>{if(cur.state!=='running'&&ac===cur)audioStale=true},()=>{if(ac===cur)audioStale=true})}catch(e){audioStale=true}
+  unlockBlip();
+  setTimeout(()=>{if(ac===cur&&cur.state!=='running')audioStale=true},400); /* still dead: rebuild on the next tap */
 }
-/* Coming back to the page: try to resume (no rebuild here; outside a tap a new context would start suspended). */
+function sleepAudio(){if(document.visibilityState==='hidden'||document.hidden){audioStale=true;try{ac&&ac.suspend()}catch(e){}}}
+/* Coming back: try a resume so desktop browsers carry on; the next tap rebuilds anyway, which is what iOS needs. */
 function wakeAudio(){if(ac&&ac.state!=='running'&&document.visibilityState!=='hidden'){try{const p=ac.resume();if(p&&p.catch)p.catch(()=>{})}catch(e){}}}
-document.addEventListener('visibilitychange',wakeAudio);addEventListener('pageshow',wakeAudio);addEventListener('focus',wakeAudio);
+document.addEventListener('visibilitychange',()=>{sleepAudio();wakeAudio()});
+addEventListener('pagehide',()=>{audioStale=true});
+addEventListener('pageshow',e=>{if(e.persisted)audioStale=true;wakeAudio()});
+addEventListener('focus',wakeAudio);
 function env(g,t,a,dec){g.gain.setValueAtTime(a,t);g.gain.exponentialRampToValueAtTime(.0008,t+dec)}
 function noise(t,type,f,q,a,dec){const s=ac.createBufferSource();s.buffer=noiseBuf;s.loop=true;const b=ac.createBiquadFilter();b.type=type;b.frequency.value=f;b.Q.value=q;const g=ac.createGain();env(g,t,a,dec);s.connect(b);b.connect(g);g.connect(master);s.start(t,Math.random()*.8);s.stop(t+dec+.02)}
 function tone(t,type,f0,f1,a,dec){const o=ac.createOscillator();o.type=type;o.frequency.setValueAtTime(f0,t);if(f1!==f0)o.frequency.exponentialRampToValueAtTime(f1,t+dec);const g=ac.createGain();env(g,t,a,dec);o.connect(g);g.connect(master);o.start(t);o.stop(t+dec+.02)}
@@ -28,6 +34,9 @@ const sfx={
   /* falling shards: at most 3 per window, at least 0.12 s apart, so breaks don't chain into noise */
   tink(p){if(!can())return;const t=ac.currentTime;if(t-tinkAt<.12)return;if(p){p.tinks=(p.tinks||0)+1;if(p.tinks>3)return}tinkAt=t;tone(t,'triangle',rnd(3000,6500),rnd(2800,6000),.08,.07);tone(t+.05,'sine',rnd(4000,7500),4000,.045,.05)},
   thud(){if(!can())return;const t=ac.currentTime;tone(t,'sine',120,46,.8,.16);noise(t,'lowpass',620,.8,.5,.09)},
+  /* roller shutter going up: a run of metal clicks over a low hum */
+  rattle(){if(!can())return;const t=ac.currentTime;for(let i=0;i<22;i++)noise(t+i*.07,'bandpass',rnd(1500,2600),4,.16*(1-i/26),.035);tone(t,'sawtooth',72,64,.05,1.5)},
+  click(){if(!can())return;const t=ac.currentTime;tone(t,'square',1900,1700,.14,.035);noise(t,'highpass',3000,1,.25,.03)},
   clang(){if(!can())return;const t=ac.currentTime;tone(t,'square',760,740,.16,.2);tone(t,'triangle',1240,1190,.2,.3);noise(t,'bandpass',2100,2,.25,.05)},
   prop(k){if(!can())return;const t=ac.currentTime;
     if(k==='tv'){noise(t,'bandpass',900,1,.9,.16);tone(t,'sawtooth',900,60,.3,.22);for(let i=0;i<12;i++)noise(t+.03+i*.035,'highpass',5000,1,.32*(1-i/14),.018)}

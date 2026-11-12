@@ -45,7 +45,8 @@ const _c=new T.Vector3();
 function placeMissed(){
   const el=$('missed').children;let n=0;
   panes.forEach(p=>{if(p.broken)return;const e=el[n++];if(!e)return;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{_c.set(p.x+a*p.w/2,p.y+b*p.h/2,0);if(p.xf)_c.applyMatrix4(p.xf);const s=toScreen(_c.x,_c.y,_c.z);x0=Math.min(x0,s[0]);x1=Math.max(x1,s[0]);y0=Math.min(y0,s[1]);y1=Math.max(y1,s[1])});
+    const m=p.locked&&p.miss; /* a target still hidden (the car behind the closed shutter): outline what opens it instead */
+    [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([a,b])=>{if(m)_c.set(m.x+a*m.w/2,m.y+b*m.h/2,.5);else{_c.set(p.x+a*p.w/2,p.y+b*p.h/2,0);if(p.xf)_c.applyMatrix4(p.xf)}const s=toScreen(_c.x,_c.y,_c.z);x0=Math.min(x0,s[0]);x1=Math.max(x1,s[0]);y0=Math.min(y0,s[1]);y1=Math.max(y1,s[1])});
     e.style.cssText='left:'+(x0-5)+'px;top:'+(y0-5)+'px;width:'+(x1-x0+10)+'px;height:'+(y1-y0+10)+'px'});
 }
 
@@ -69,6 +70,7 @@ function crossPlane(b){
       smash(p,b);return}
     if(p.room){b.state='dead';b.a.set(0,-G,0);b.floor=p.room.floor+R;b.pane=p;b.age=0;inBalls++}else b.state='passed';
     return}}
+  if(garage&&garageCross(b,x,y))return;
   if(LVL.type==='sandbox'||LVL.type==='field')return;
   const near=hop&&hop.stage<2; /* island hop, step one: only the glass frames are here, the house is still far away */
   if(LVL.type==='stand'||near){const f=.3;for(const p of panes){if(near&&p.broken)continue;

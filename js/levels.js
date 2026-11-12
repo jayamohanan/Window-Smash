@@ -13,7 +13,8 @@
      stands at x mx / z zm, then s1 m straight back, an arc of radius rc turning left by turn°, s2 m straight; they shrink to the pane's size.
    carousel.items: {empty:true} = frame only, {inner:true} = mesh outside, glass facing the centre; inner = windows standing inside the circle.
    spin:[pane indexes] (house) = spin boards on poles in front of those windows; type field + field:'flip' + flip:{bar,w,h,items,win|glass} = panels on a bar that tip over when kicked high.
-   awn:true (house pane) = wire mesh over it, awning below that springs the ball up into the gap; revolver = revolving door with 4 glass wings. */
+   awn:true (house pane) = wire mesh over it, awning below that springs the ball up into the gap; revolver = revolving door with 4 glass wings.
+   garage:{x,w,h,btn:{x,y}} (house) = garage with a closed roller shutter; the push button beside it opens it, and the parked SUV's rear window is a target. */
 const GX=[-4.5,-1.5,1.5,4.5];
 const ghPanes=()=>[...GX.map(x=>({x,y:1.7,w:2.8,h:2.2})),...GX.map(x=>({x,y:4,w:2.8,h:2.2})),...GX.map(x=>({x,y:2.9,w:2.8,h:4.4,back:true})),...GX.map(x=>({x,w:2.8,h:2.3,roof:true}))];
 const two=()=>[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}];
@@ -31,6 +32,8 @@ const LV=[
  {name:'Boarded Up',type:'house',H:5.2,G:2.3,W:7,balls:6,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,armor:1},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,hp:2}]},
  {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:6,porch:true,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
    panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{sky:true,w:2.2,h:1.8}]},
+ {name:'Garage',type:'house',H:8.2,G:2.2,W:7.5,balls:7,garage:{x:3.9,w:4,h:3.3,btn:{x:6.7,y:1.9}},
+   panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'tv',wall:0xffe6b0},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xcfe8d5}]},
  {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:7,wind:7,panes:four()},
  {name:'Spin Board',type:'house',H:5.2,G:2.3,W:7,balls:5,spin:[0,1],panes:two()},
  {name:'Bonus: Greenhouse',type:'greenhouse',bonus:true,balls:12,panes:ghPanes()},
@@ -79,7 +82,7 @@ function clearLevel(){
   spark.clear();dust.clear();timers=[];$('win').hidden=true;$('again').hidden=true;$('retryBtn').hidden=false;$('bubble').hidden=true;$('fail').hidden=true;$('wipe').classList.remove('on');
   failing=false;failT=-1;retrying=false;leaving=false;confetti.length=0;fctx.clearRect(0,0,W_,H_);
   returned.forEach(r=>scene.remove(r.m));returned.length=0;inBalls=0;
-  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];padWall=null;tunnel=null;hinges=[];catS=null;wheel=null;behind=null;revolver=null;pond=null;camOff.set(0,0,0);spot.visible=true;
+  grump=null;door=null;grumpT=-1;obs=[];movers=[];lt=0;wind=0;hop=null;sw=null;pads=[];padWall=null;tunnel=null;hinges=[];catS=null;wheel=null;behind=null;revolver=null;pond=null;garage=null;camOff.set(0,0,0);spot.visible=true;
 }
 function makeFrame(p,parent,c){const f=.2,z=.1;
   box(p.w+f*2,f,.34,c,p.x,p.y+p.h/2+f/2,z,parent);box(p.w+f*2,f,.34,c,p.x,p.y-p.h/2-f/2,z,parent);
@@ -143,6 +146,7 @@ function buildHouse(L){
   panes.forEach(p=>!p.sky&&hole(p.x-p.w/2,p.y-p.h/2,p.x+p.w/2,p.y+p.h/2));
   const rv=!!L.revolver,dw=rv?1.3:.95,dh=rv?3.6:3.3; /* doorway half-width and height (wider and taller for the revolving door) */
   hole(-dw,0,dw,dh);
+  if(L.garage){const o=L.garage;hole(o.x-o.w/2,0,o.x+o.w/2,o.h)}
   const tex=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#f2bd86';c.fillRect(0,0,w,h);c.fillStyle='#d99d62';for(let i=0;i<4;i++)c.fillRect(0,i*h/4,w,3);c.fillStyle='rgba(255,255,255,.08)';for(let i=0;i<4;i++)c.fillRect(0,i*h/4+6,w,10)});
   tex.wrapS=tex.wrapT=T.RepeatWrapping;tex.repeat.set(.42,.42);
   const wg=new T.ExtrudeGeometry(sh,{depth:.38,bevelEnabled:false});
@@ -202,9 +206,19 @@ let sandbox=false;
 function loadSandbox(){
   clearLevel();sandbox=true;LVL={name:'Sandbox',type:'sandbox',balls:0,panes:[]};
   group=new T.Group();scene.add(group);panes=[];world.visible=true;setNight(false);
+  buildTestPanes();
   ballsLeft=1e9;used=0;won=false;
   $('lvlNo').textContent='Sandbox';
   drawBalls();spawnBall();updateHint();chips();
+}
+/* Sandbox aim test: three towers, near (left, z 6) / mid (centre, z 1.5) / far (right, z -4), each with a low, middle and high
+   window and a clear gap between them, so every window can be hit on its own. A broken one comes back after 2.5 s. */
+function buildTestPanes(){
+  const w=2,h=1.7,ys=[1.1,4.1,7.1];
+  [[-4.8,6],[0,1.5],[7,-4]].forEach(([x,z])=>{
+    ys.forEach(y=>{const p={w,h,stop:true,z};freeStand(p,new T.Vector3(x,y,z));panes.push(p)});
+    const top=ys[ys.length-1]-h/2;[-1,1].forEach(s=>box(.18,top,.18,0x8a5f3b,x+s*(w/2+.1),top/2,z+.1,group))});
+  movers.push((t,dt)=>panes.forEach(p=>{if(!p.broken){p.rt=0;return}p.rt=(p.rt||0)+dt;if(p.rt>2.5){p.rt=0;p.broken=false;p.mesh.visible=true;(p.extra||[]).forEach(m=>m.visible=true)}}));
 }
 const reloadLevel=()=>sandbox?loadSandbox():loadLevel(level);
 function drawBalls(){$('balls').classList.toggle('last',!sandbox&&!LVL.bonus&&!won&&ballsLeft===1);if(sandbox){$('balls').innerHTML='';return}$('balls').innerHTML=Array.from({length:LVL.balls},(_,i)=>'<i class="'+(i<LVL.balls-ballsLeft?'used':'')+'"></i>').join('')}
