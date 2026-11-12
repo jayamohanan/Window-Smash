@@ -60,7 +60,7 @@ function liveMove(e){
   d.last=pt;
 }
 /* Live+: the kick fires at the end of the flick (finger lifts, nearly stops, or 0.4 s after leaving the ring), so the
-   whole swipe is known: its peak speed decides kick vs dribble, its highest point decides where the ball goes. */
+   whole swipe is known: its peak speed decides kick vs dribble, its highest point decides where the ball goes (kickPlus). */
 function firePlus(d){const g=d.go;d.go=null;if(!cur||won)return;kickLive(ballPx(),{x:d.topX,y:d.top},d,g.pk)}
 /* Swipe velocity in px/s over the last ~100 ms of the drag. */
 function swipeVel(d){
@@ -74,18 +74,39 @@ function kickLive(bp,pt,d,pk){
   const b=cur;cur=null;b.live=true;b.state='fly';b.age=0;
   const sv=swipeVel(d),spd=(pk===undefined?Math.hypot(sv.x,sv.y):pk)/Math.min(W_,H_);
   let P=clamp(6+spd*S.power,6,32);
-  /* Live+: any real flick is a full kick; only a slow push stays a weak dribble (short ramp between them). */
   const plus=S.mode==='livep';
-  if(plus){const f=S.flick,u=clamp((spd-f*.6)/(f*.4),0,1),s=u*u*(3-2*u);P=lerp(Math.min(P,13),S.pFull,s)}
+  if(plus){kickPlus(b,bp,pt,spd);balls.push(b);d.steer=b;kickFx();return}
   let dx=sv.x,dy=sv.y;if(plus||spd<.2||dy>-1){dx=pt.x-bp.x;dy=pt.y-bp.y}
   const rowY=toScreen(0,2.8,ZF)[1],k=(bp.y-rowY)/Math.max(1,-dy);
   let xw=0;ndc.set((bp.x+dx*k)/W_*2-1,1-rowY/H_*2);ray.setFromCamera(ndc,camera);if(ray.ray.intersectPlane(plane,hitV))xw=clamp(hitV.x,-16,16);
-  b.P=P;b.lift=0;b.plus=plus;b.vn=P*(plus?S.loftP:S.loft);b.baseY=bp.y;b.topY=Math.min(d.top,pt.y+Math.min(0,sv.y)*.08);
-  if(plus){b.topY=pt.y;b.topX=pt.x;b.bx0=bp.x}b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
-  balls.push(b);d.steer=b;
+  b.P=P;b.lift=0;b.plus=false;b.vn=P*S.loft;b.baseY=bp.y;b.topY=Math.min(d.top,pt.y+Math.min(0,sv.y)*.08);
+  b.v.set(xw*P/13,b.vn,-P*D/13);b.a.set(0,-S.gravity,0);
+  balls.push(b);d.steer=b;kickFx();
+}
+function kickFx(){
   ballsLeft--;used++;drawBalls();sfx.kick();
   for(let i=0;i<14;i++)dust.emit(rnd(-.3,.3),.1,D+rnd(-.2,.2),rnd(-1.8,1.8),rnd(.6,2.2),rnd(-.5,1.5),rnd(.25,.5),[.72,.6,.42],3);
   addShake(.1);if(!hintDone){hintDone=true;updateHint()}
+}
+/* Live+: the launch is solved once, at the kick, then the ball is left to plain gravity and drag (no steering, no ceiling).
+   Aim point = the swipe's highest point (× reachP from the ball) on screen; its depth is whatever the level shows there
+   (first visible level mesh on that ray), else the house wall plane. The arc peaks about arcP m above that point,
+   capped at pMax m/s, so high windows get a lob and low ones a drive. A slow push is a short dribble toward it. */
+const _aim=new T.Vector3();
+function seen(o){for(;o;o=o.parent)if(!o.visible)return false;return true}
+function kickPlus(b,bp,pt,spd){
+  const ax=bp.x+(pt.x-bp.x)*S.reachP,ay=bp.y+(pt.y-bp.y)*S.reachP;
+  ndc.set(ax/W_*2-1,1-ay/H_*2);ray.setFromCamera(ndc,camera);
+  const hit=group&&ray.intersectObject(group,true).find(h=>h.point.z<b.p.z-1.5&&seen(h.object));
+  if(hit)_aim.copy(hit.point);else if(!ray.ray.intersectPlane(plane,_aim))_aim.set(0,3,ZF);
+  _aim.y=Math.max(_aim.y,R+.1);
+  const g=S.gravity,dx=_aim.x-b.p.x,dz=b.p.z-_aim.z,h=Math.max(.5,Math.hypot(dx,dz)),dy=_aim.y-b.p.y;
+  b.plus=true;b.live=true;b.lift=0;b.a.set(0,-g,0);
+  if(spd<S.flick){const P=clamp(6+spd*S.power,6,12);b.P=P;b.vn=P*.3;b.v.set(dx/h*P,b.vn,-dz/h*P);return}
+  const t=Math.max(Math.sqrt(2*Math.max(dy+S.arcP,.4)/g),h/S.pMax);
+  let vh=h/t,vy=(dy+.5*g*t*t)/t;
+  const k=1+.004*Math.hypot(vh,vy)*t*.5;vh*=k;vy*=k; /* rough make-up for air drag */
+  b.P=Math.hypot(vh,vy);b.vn=vy;b.v.set(dx/h*vh,vy,-dz/h*vh);
 }
 /* Screen-space ceiling: the ball may rise S.reach times as high as the finger went, measured on screen
    up from the ball's resting spot (one fixed scale for every level). A fast upward flick carries the
@@ -93,7 +114,8 @@ function kickLive(bp,pt,d,pk){
 const ceilPlane=new T.Plane(new T.Vector3(0,0,1),0);
 function ceilingY(b){
   const sx=toScreen(b.p.x,b.p.y,b.p.z)[0];ceilPlane.constant=-b.p.z;
-  const ty=b.plus?b.baseY-(b.baseY-b.topY)*S.reachP:b.baseY-(b.baseY-b.topY)*S.reach;ndc.set(sx/W_*2-1,1-ty/H_*2);ray.setFromCamera(ndc,camera);
+  if(b.plus)return null;
+  const ty=b.baseY-(b.baseY-b.topY)*S.reach;ndc.set(sx/W_*2-1,1-ty/H_*2);ray.setFromCamera(ndc,camera);
   return ray.ray.intersectPlane(ceilPlane,hitV)?hitV.y:null;
 }
 /* Per-frame forces for a live ball. b.vn is the free (uncapped) vertical speed under gravity;
@@ -110,17 +132,11 @@ function flyLive(b,dt){
       const tx=p.x+p.vx*tr,ty=p.y,q=Math.hypot(px-tx,py-ty);
       if(q<Math.hypot(p.w,p.h)/2+1.3&&q<bd){bd=q;best=p;bt=tr;bx=tx-px;by=ty-py}});
     if(best){const k=1-Math.exp(-S.snap*7*dt),t=Math.max(bt,.1);if(!wind)v.x+=bx*k/t;b.vn+=by*k/t}}
-  /* Live+: the ball stays on the screen line from its start through the finger's highest point, so it flies where you
-     swiped at any depth (near stands, the wall, the far carousel). After its peak it keeps the screen x it had there. */
-  if(b.plus&&v.z<-.5){const s0=toScreen(b.p.x,b.p.y,b.p.z),s1=toScreen(b.p.x+1,b.p.y,b.p.z),ux=b.topX-b.bx0,uy=Math.min(-1,b.topY-b.baseY);
-    b.sy=Math.min(b.sy===undefined?b.baseY:b.sy,s0[1]); /* highest screen point so far: after the peak the ball keeps that screen x */
-    const want=b.bx0+ux/uy*(b.sy-b.baseY),dxw=(want-s0[0])/Math.max(1e-3,s1[0]-s0[0]);v.x=clamp(lerp(v.x,dxw/Math.max(dt,.008),.25),-30,30)}
   const yMax=ceilingY(b),gap=yMax===null?1e9:yMax-b.p.y;
-  /* Live+: the ceiling rises with distance (it is a line on screen), so the ball may brake harder toward it to keep up. */
-  v.y=Math.min(b.vn,gap>0?Math.sqrt(2*g*(b.plus?S.capK:1)*gap):0);
+  v.y=Math.min(b.vn,gap>0?Math.sqrt(2*g*gap):0);
   /* At the ceiling, drop the leftover climb so the ball peaks there and falls at once (no flat hover).
      Below the ceiling vn is kept, so a finger that is still rising can still lift the ball. */
-  if(gap<.05&&!(b.plus&&S.glideP))b.vn=Math.min(b.vn,v.y); /* Live+ glide (dev toggle): rides the screen line until vn runs out */
+  if(gap<.05)b.vn=Math.min(b.vn,v.y);
   b.vn-=g*dt;
   b.a.set(-c*sp*v.x,-g,-c*sp*v.z);
   b.spin.set(0,1,0).cross(v).normalize();
