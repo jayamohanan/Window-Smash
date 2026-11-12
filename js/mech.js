@@ -3,7 +3,7 @@
    Solid obstacles (oriented boxes the ball bounces off), movers (per-frame animation),
    shutters, wooden boards, wired glass, the porch skylight and wind. */
 let obs=[],movers=[],lt=0,wind=0;
-const _lp=new T.Vector3(),_lq=new T.Vector3(),_n=new T.Vector3(),_rv=new T.Vector3(),_wp=new T.Vector3();
+const _lp=new T.Vector3(),_lq=new T.Vector3(),_ld=new T.Vector3(),_n=new T.Vector3(),_rv=new T.Vector3(),_wp=new T.Vector3();
 
 /* Bounce per material: e = restitution along the normal, f = friction kept along the surface. */
 const OBK={wood:{e:.45,f:.75,snd:'wood'},roof:{e:.3,f:.82,snd:'thud'},wall:{e:.35,f:.7,snd:'thud'},metal:{e:.5,f:.8,snd:'clang'},tramp:{e:.6,f:.8,snd:'boing'},hedge:{e:.1,f:.3,snd:'rustle'}};
@@ -167,6 +167,9 @@ function skyHit(b,prev){
   if(b.ghost)return;
   for(const p of panes){if(!p.inv||p.broken||p.locked)continue;_lp.copy(b.p).applyMatrix4(p.inv);const z1=_lp.z,z0=prev?_lq.copy(prev).applyMatrix4(p.inv).z:z1;
     const lo=p.inner?-R:p.oneWay?-.05:-.5,hi=p.inner?.05:GLASS_REACH;
+    /* angled glass: judge by where the ball's path will pierce the glass, not where its centre is now, so a ball sweeping
+       along a slanted pane isn't caught by the far frame bar on its way in (straight-on hits land on the same spot) */
+    if(!p.inner&&z1>0&&z1<hi){_ld.copy(b.v).transformDirection(p.inv);if(_ld.z<-.05){const t=z1/-_ld.z;_lp.x+=_ld.x*t;_lp.y+=_ld.y*t}}
     if(Math.abs(_lp.x)<=p.w/2+.08&&Math.abs(_lp.y)<=p.h/2+.08&&Math.min(z0,z1)<hi&&Math.max(z0,z1)>lo){
       if(p.hp>1){crackPane(p,b,_lp.clone());stopBall(b);return}
       smash(p,b,_lp.clone());return}}
@@ -360,6 +363,32 @@ function buildRevolver(o){
     wings.forEach(w=>{syncPane(w.p);w.p.narrow=Math.abs(Math.cos(w.a+rot.rotation.y))<.5})});
 }
 const REV={base:.55,push:1.3,max:2.4,ease:1.6};
+/* V deflection: when the two front wings make a V toward the player (each 20-70 deg from facing), a ball that breaks one of them
+   on its inner half (toward the pole) glances off the corner and flies on into the other one (a set path, like the Stacked chain).
+   A ball into the middle of the V, where it would clip the metal at the pole, counts as an inner-half hit on the wing on its side.
+   V.cosLo/cosHi: the angle range (as |cos| of the wing angle); V.inner: hits left of this (pane-local x, 0 = wing middle) deflect;
+   V.r / V.reach: the pocket around the pole (sideways / distance), checked before either wing's glass zone. */
+const V={cosLo:.34,cosHi:.94,inner:.1,r:.45,reach:1.05};
+function revFront(){const rv=revolver;if(!rv)return[];
+  const f=rv.wings.filter(w=>{const t=w.a+rv.rot.rotation.y,cs=Math.abs(Math.cos(t));return -Math.sin(t)>0&&cs>=V.cosLo&&cs<=V.cosHi});
+  return f.length===2?f:[]}
+/* The wing the ball deflects into after breaking p at local hit point lh, or null. */
+function revOther(p,lh){
+  if(!revolver||!p.moving||!lh||lh.x>V.inner)return null;
+  const f=revFront(),w=f.find(w=>w.p===p);if(!w)return null;
+  const o=f.find(x=>x!==w);return o&&!o.p.broken?o.p:null}
+/* Fly on to the outer half of the other wing (clear of the metal at the pole); a set path, so frames don't stop it. */
+function revChain(b,q){const y=clamp(b.p.y-q.c.y,-q.h/2+.3,q.h/2-.3);chainTo(b,{c:new T.Vector3(.18,y,0).applyMatrix4(q.xf)});b.rebound=true}
+function revPocket(b){
+  const rv=revolver;if(!rv||b.ghost||b.rebound||b.v.z>=0)return;
+  const c=rv.rot.position,dx=b.p.x-c.x,dz=b.p.z-c.z;
+  if(dz<=0||Math.abs(dx)>V.r||Math.hypot(dx,dz)>V.reach)return;
+  const w0=rv.wings[0].p;if(Math.abs(b.p.y-w0.c.y)>w0.h/2)return;
+  const f=revFront();if(!f.length)return;
+  const side=w=>Math.cos(w.a+rv.rot.rotation.y)*dx>=0; /* the wing on the ball's side of the pole */
+  const w=f.find(w=>side(w)&&!w.p.broken)||f.find(w=>!w.p.broken);if(!w)return;
+  smash(w.p,b,new T.Vector3(-w.p.w/2+.2,clamp(b.p.y-w.p.c.y,-w.p.h/2,w.p.h/2),0));
+}
 function revPush(){if(revolver)revolver.om=Math.min(REV.max,revolver.om+REV.push)}
 
 /* ---------- awning + mesh: the upstairs window is behind a wire mesh hinged at the top of the window. A ball that lands on
@@ -739,6 +768,7 @@ function aimTargets(){
   panes.forEach(p=>{if(p.broken||p.locked||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
     if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0});return} /* revolving door: lead the wing by ~0.55 s of turn */
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
+  if(revolver){const f=revFront();if(f.some(w=>!w.p.broken)){const c=revolver.rot.position,w0=revolver.wings[0].p;a.push({x:c.x,y:w0.c.y,z:c.z+.5,w:.9,h:w0.h,vx:0})}} /* open V: pull toward its corner */
   if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
   if(garage&&!garage.pressed)a.push({x:garage.btn.x,y:garage.btn.y,z:.7,w:1.3,h:1.3,vx:0}); /* the garage button */
   hinges.forEach(hg=>{if(!hg.open&&hg.aim)a.push(hg.aim)}); /* a closed blocker: aim at the spot that swings it */
