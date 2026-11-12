@@ -157,12 +157,16 @@ function buildPorch(){
   makeFrame(p,sg,0xfffaf0);makePane(p,sg);p.mesh.position.z=.03;
   g.updateMatrixWorld(true);p.xf=sg.matrixWorld.clone();p.inv=p.xf.clone().invert();p.q=sg.getWorldQuaternion(new T.Quaternion());
 }
+/* Glass first: the glass counts from the moment the ball touches the frame's front face (frame front z .27 + ball radius),
+   and it is checked before the frames, so a ball whose centre is over the glass breaks it even if its side clips the frame.
+   Only a ball centred on the frame or outside it bounces off the wood (same rule as house windows). */
+const GLASS_REACH=.27+R+.02;
 /* Free-pane hit test (skylight, greenhouse back wall and roof): the ball touches the glass from its front side. */
 /* prev = where the ball was a substep ago, so a fast ball can't skip over the thin hit zone */
 function skyHit(b,prev){
   if(b.ghost)return;
   for(const p of panes){if(!p.inv||p.broken||p.locked)continue;_lp.copy(b.p).applyMatrix4(p.inv);const z1=_lp.z,z0=prev?_lq.copy(prev).applyMatrix4(p.inv).z:z1;
-    const lo=p.inner?-R:p.oneWay?-.05:-.5,hi=p.inner?.05:R;
+    const lo=p.inner?-R:p.oneWay?-.05:-.5,hi=p.inner?.05:GLASS_REACH;
     if(Math.abs(_lp.x)<=p.w/2+.08&&Math.abs(_lp.y)<=p.h/2+.08&&Math.min(z0,z1)<hi&&Math.max(z0,z1)>lo){
       if(p.hp>1){crackPane(p,b,_lp.clone());stopBall(b);return}
       smash(p,b,_lp.clone());return}}
