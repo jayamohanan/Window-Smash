@@ -101,13 +101,17 @@ function kickPlus(b,bp,pt,spd){
   if(hit)_aim.copy(hit.point);else if(!ray.ray.intersectPlane(plane,_aim))_aim.set(0,3,ZF);
   _aim.y=Math.max(_aim.y,R+.1);
   const g=S.gravity,dx=_aim.x-b.p.x,dz=b.p.z-_aim.z,h=Math.max(.5,Math.hypot(dx,dz)),dy=_aim.y-b.p.y;
-  b.plus=true;b.live=true;b.lift=0;b.a.set(0,-g,0);
+  b.plus=true;b.live=true;b.lift=0;b.aimK=null;b.a.set(0,-g,0);
   if(spd<S.flick){const P=clamp(6+spd*S.power,6,12);b.P=P;b.vn=P*.3;b.v.set(dx/h*P,b.vn,-dz/h*P);return}
   /* Strong: flight time from a fixed hard speed, so the ball is driven almost straight at the point (still a slight curve) */
   const strong=S.mode==='lives'&&!(LVL&&LVL.lob);
   const t=strong?h/S.pStr:Math.max(Math.sqrt(2*Math.max(dy+S.arcP,.4)/g),h/S.pMax);
   let vh=h/t,vy=(dy+.5*g*t*t)/t;
   const k=1+.004*Math.hypot(vh,vy)*t*.5;vh*=k;vy*=k; /* rough make-up for air drag */
+  /* Aim help locks onto the one target nearest the aim point (measured from its edge), chosen now and never switched,
+     so a shot through a gap at a far window isn't pulled to a near one it passes. Nothing near the aim point: no help. */
+  let lk=null,ld=1.3;aimTargets().forEach(q=>{const e=Math.hypot(_aim.x-q.x,_aim.y-q.y,_aim.z-q.z)-Math.hypot(q.w,q.h)/2;if(e<ld){ld=e;lk=q.k}});
+  b.aimK=lk;
   b.P=Math.hypot(vh,vy);b.vn=vy;b.v.set(dx/h*vh,vy,-dz/h*vh);
 }
 /* Screen-space ceiling: the ball may rise S.reach times as high as the finger went, measured on screen
@@ -129,7 +133,7 @@ function flyLive(b,dt){
      and nudge toward the nearest one. */
   if(S.snap>0&&b.p.z<D*.6&&v.z<-.5&&b.p.y>R+.02){
     let best=null,bd=1e9,bt=0,bx=0,by=0;
-    aimTargets().forEach(p=>{const tr=(b.p.z-p.z)/-v.z;if(tr<.02)return;
+    aimTargets().forEach(p=>{if(b.plus&&p.k!==b.aimK)return;const tr=(b.p.z-p.z)/-v.z;if(tr<.02)return;
       const py=b.p.y+b.vn*tr-.5*g*tr*tr,px=b.p.x+v.x*tr;if(py<R+.2)return;
       const tx=p.x+p.vx*tr,ty=p.y,q=Math.hypot(px-tx,py-ty);
       if(q<Math.hypot(p.w,p.h)/2+1.3&&q<bd){bd=q;best=p;bt=tr;bx=tx-px;by=ty-py}});

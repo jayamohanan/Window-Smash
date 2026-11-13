@@ -30,8 +30,8 @@ const LV=[
  {name:'Sliding Board',type:'house',H:5.2,G:2.3,W:7,balls:7,board:{z:2.4,w:6,amp:4.2,speed:1.25},panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5}]},
  {name:'Shutters',type:'house',H:5.2,G:2.3,W:7,balls:7,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,shutter:{phase:0}},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,shutter:{phase:.5}}]},
  {name:'Boarded Up',type:'house',H:5.2,G:2.3,W:7,balls:8,panes:[{x:-3.9,y:2.8,w:2.6,h:2.3,prop:'tv',wall:0xffe6b0,armor:1},{x:3.9,y:2.8,w:2.6,h:2.3,prop:'vase',wall:0xcfe8d5,hp:2}]},
- {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:8,porch:true,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
-   panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{sky:true,w:2.2,h:1.8}]},
+ {name:'Over the Hedge',type:'house',H:5.8,G:2.3,W:7,balls:8,hedges:[{x:-4.2,z:2.1,w:3.8,h:2.5},{x:4.2,z:2.1,w:3.8,h:2.5}],
+   panes:[{x:-4.2,y:3.75,w:2.4,h:2.1,prop:'fish',wall:0xcfe0f0},{x:4.2,y:3.75,w:2.4,h:2.1,prop:'cake',wall:0xffd7c8},{x:0,y:5.2,w:2.8,h:2.1,prop:'tv',wall:0xffe6b0}]},
  {name:'Garage',type:'house',H:8.2,G:2.2,W:7.5,balls:9,garage:{x:3.9,w:4,h:3.3,btn:{x:6.7,y:1.9}},
    panes:[{x:-3.9,y:2.5,w:2.4,h:2.1,prop:'tv',wall:0xffe6b0},{x:3.9,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xcfe8d5}]},
  {name:'Windy Day',type:'house',H:8.2,G:2.2,W:7,balls:9,wind:7,panes:four()},
@@ -221,6 +221,6 @@ function buildTestPanes(){
   movers.push((t,dt)=>panes.forEach(p=>{if(!p.broken){p.rt=0;return}p.rt=(p.rt||0)+dt;if(p.rt>2.5){p.rt=0;p.broken=false;p.mesh.visible=true;(p.extra||[]).forEach(m=>m.visible=true)}}));
 }
 const reloadLevel=()=>sandbox?loadSandbox():loadLevel(level);
-function drawBalls(){$('balls').classList.toggle('last',!sandbox&&!LVL.bonus&&!won&&ballsLeft===1);if(sandbox||LVL.free){$('balls').innerHTML='';return}$('balls').innerHTML=Array.from({length:LVL.balls},(_,i)=>'<i class="'+(i<LVL.balls-ballsLeft?'used':'')+'"><svg><use href="#fb"/></svg></i>').join('')}
+function drawBalls(){$('balls').classList.toggle('last',!sandbox&&!LVL.bonus&&!won&&ballsLeft===1);if(sandbox||LVL.free){$('balls').innerHTML='';return}$('balls').innerHTML=Array.from({length:LVL.balls},(_,i)=>'<i class="'+(i>=ballsLeft?'used':'')+'"><svg><use href="#fb"/></svg></i>').join('')}
 
 

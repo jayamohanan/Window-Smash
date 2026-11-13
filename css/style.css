@@ -15,11 +15,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 #gl{touch-action:none;cursor:default}
 #fx{pointer-events:none}
 .hud{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;pointer-events:none}
-#balls{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0;max-width:calc(100% - 170px);background:rgba(35,48,74,.85);padding:7px 10px;border-radius:10px}
+#balls{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0;max-width:calc(100% - 170px);padding:4px 2px}
 #balls i{width:17px;height:17px;display:block;flex:none}
 .hud .ib{flex:none}
-#balls svg{width:100%;height:100%;display:block}
-#balls i.used{opacity:.2;filter:grayscale(1)}
+#balls svg{width:100%;height:100%;display:block;filter:drop-shadow(0 1px 1.5px rgba(20,28,45,.45))}
+#balls i.used{opacity:.3;filter:grayscale(1)}
 #balls:empty{visibility:hidden}
 .spacer{flex:1}
 /* Level number, centred at the top */
@@ -65,7 +65,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 #wipe{position:absolute;inset:0;z-index:15;background:#0e1426;opacity:0;pointer-events:none;transition:opacity .25s ease}
 #wipe.on{opacity:1;transition-duration:.18s}
 #balls.last{animation:lastBall .6s ease-in-out infinite alternate}
-@keyframes lastBall{to{background:var(--brick);transform:scale(1.08)}}
+@keyframes lastBall{to{transform:scale(1.15)}}
 @media (prefers-reduced-motion:reduce){#balls.last,.failBox b,#missed i,#again{animation-duration:2s}#win h2{animation-duration:.01s}}
 /* Tutorial hand: index finger tilted to point north-west (as a hand holding a phone); the fingertip (12,8 in the SVG) is the anchor point. The swipe itself stays vertical. */
 #hint{position:absolute;left:0;top:0;width:72px;height:78px;margin:-8px 0 0 -12px;transform-origin:12px 8px;pointer-events:none;filter:drop-shadow(0 4px 0 rgba(35,48,74,.3));animation:swipe 1.6s ease-in-out infinite}

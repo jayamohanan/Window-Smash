@@ -744,15 +744,15 @@ let sw=null,pads=[];
 function aimTargets(){
   const a=[];
   panes.forEach(p=>{if(p.broken||p.locked||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||roamOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
-    if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0});return} /* revolving door: lead the wing by ~0.55 s of turn */
-    a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
-  if(revolver){const f=revFront();if(f.some(w=>!w.p.broken)){const c=revolver.rot.position,w0=revolver.wings[0].p;a.push({x:c.x,y:w0.c.y,z:c.z+.5,w:.9,h:w0.h,vx:0})}} /* open V: pull toward its corner */
-  if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0});
-  if(garage&&!garage.pressed)a.push({x:garage.btn.x,y:garage.btn.y,z:.7,w:1.3,h:1.3,vx:0}); /* the garage button */
-  hinges.forEach(hg=>{if(!hg.open&&hg.aim)a.push(hg.aim)}); /* a closed blocker: aim at the spot that swings it */
-  if(tunnel&&!tunnel.p.broken)a.push({x:tunnel.x,y:tunnel.cy,z:tunnel.zm,w:tunnel.w,h:tunnel.h,vx:0}); /* deep frame: aim at the mouth */
-  panes.forEach(p=>{if(p.awn&&!p.broken)a.push({x:p.x,y:p.y-p.h/2-.8,z:1,w:p.w+.7,h:.9,vx:0})}); /* awnings: aim at the awning, not the meshed glass */
-  if(behind)behind.reb.forEach(r=>{if(!r.p.broken&&r.q.broken)a.push({x:r.x,y:r.y,z:.4,w:r.w,h:r.h,vx:0})}); /* an open trampoline */
+    if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0,k:p});return} /* revolving door: lead the wing by ~0.55 s of turn */
+    a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0,k:p})});
+  if(revolver){const f=revFront();if(f.some(w=>!w.p.broken)){const c=revolver.rot.position,w0=revolver.wings[0].p;a.push({x:c.x,y:w0.c.y,z:c.z+.5,w:.9,h:w0.h,vx:0,k:'revV'})}} /* open V: pull toward its corner */
+  if(sw&&!sw.done)a.push({x:sw.x,y:sw.y,z:sw.z+.3,w:1.7,h:1.7,vx:0,k:'sw'});
+  if(garage&&!garage.pressed)a.push({x:garage.btn.x,y:garage.btn.y,z:.7,w:1.3,h:1.3,vx:0,k:'garage'}); /* the garage button */
+  hinges.forEach(hg=>{if(!hg.open&&hg.aim)a.push(Object.assign({},hg.aim,{k:hg}))}); /* a closed blocker: aim at the spot that swings it */
+  if(tunnel&&!tunnel.p.broken)a.push({x:tunnel.x,y:tunnel.cy,z:tunnel.zm,w:tunnel.w,h:tunnel.h,vx:0,k:'tun'}); /* deep frame: aim at the mouth */
+  panes.forEach(p=>{if(p.awn&&!p.broken)a.push({x:p.x,y:p.y-p.h/2-.8,z:1,w:p.w+.7,h:.9,vx:0,k:p})}); /* awnings: aim at the awning, not the meshed glass */
+  if(behind)behind.reb.forEach(r=>{if(!r.p.broken&&r.q.broken)a.push({x:r.x,y:r.y,z:.4,w:r.w,h:r.h,vx:0,k:r})}); /* an open trampoline */
   return a;
 }
 
