@@ -54,9 +54,18 @@ function layout(){
 }
 const proj=new T.Vector3();
 function toScreen(x,y,z){proj.set(x,y,z).project(camera);return[(proj.x+1)/2*W_,(1-proj.y)/2*H_]}
+/* Tutorial hint (levels with tut): the hand swipes from the ball to a window, drawing a tapered arrow under it that ends
+   on the window. Shown while a ball waits, until the first window breaks; hidden after the 1st kick, back from the 2nd miss on. */
 function updateHint(){
-  if(!LVL)return;const show=!hintDone&&!sandbox&&!!LVL.tut&&panes.length>0;$('hint').hidden=!show;if(!show)return;
-  const a=toScreen(0,.3,D),b=toScreen(panes[0].x,panes[0].y,0),h=$('hint');
+  if(!LVL)return;const t=panes.find(p=>!p.broken);
+  const show=!hintDone&&!sandbox&&!!LVL.tut&&!!t&&!!cur&&hintMiss!==1;$('hint').hidden=!show;$('hintArr').toggleAttribute('hidden',!show); /* svg has no .hidden property */if(!show)return;
+  const a=toScreen(0,.3,D),b=toScreen(t.x,t.y,0),h=$('hint');
   h.style.setProperty('--x0',a[0]+'px');h.style.setProperty('--y0',(a[1]-16)+'px');h.style.setProperty('--x1',b[0]+'px');h.style.setProperty('--y1',b[1]+'px');
+  /* arrow: starts just above the ball, tip on the window centre; thin at the ball, wider toward the top */
+  const r=ballPx().r,dx=b[0]-a[0],dy=b[1]-a[1],full=Math.hypot(dx,dy),ux=dx/full,uy=dy/full,s=r*1.6,L=Math.max(40,full-s);
+  const ar=$('hintArr'),hl=Math.min(34,L*.3),c=28;
+  ar.style.left=(a[0]+ux*s)+'px';ar.style.top=(a[1]+uy*s-c)+'px';ar.style.width=L+'px';ar.style.transform='rotate('+Math.atan2(dy,dx)+'rad)';
+  ar.setAttribute('viewBox','0 0 '+L+' 56');ar.setAttribute('width',L);
+  ar.firstElementChild.setAttribute('points',[[2,c-2],[L-hl,c-11],[L-hl,c-24],[L-2,c],[L-hl,c+24],[L-hl,c+11],[2,c+2]].map(q=>q.join(',')).join(' '));
 }
 

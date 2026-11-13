@@ -67,6 +67,7 @@ function stepConfetti(dt){
 }
 /* lh: hit point in the pane's own frame (skylight); wall panes use the ball position. */
 function smash(p,b,lh){
+  if(!hintDone){hintDone=true;updateHint()} /* the tutorial hint stays until a window breaks */
   p.broken=true;p.mesh.visible=false;(p.extra||[]).forEach(m=>m.visible=false);
   const last=!sandbox&&!(hop&&hop.stage<2)&&panes.every(q=>q.broken); /* this hit wins the level */
   const speed=b.v.length(),src=lh||b.p,hx=clamp(src.x,p.x-p.w/2+.05,p.x+p.w/2-.05),hy=clamp(src.y,p.y-p.h/2+.05,p.y+p.h/2-.05);

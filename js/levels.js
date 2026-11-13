@@ -11,7 +11,7 @@
    type:'field' = free-standing panes placed by a builder (field:'stack' | 'carousel' | 'behind' | 'aquarium' | 'tunnel').
    tunnel:{mx,zm,w0,h0,gap,s1,rc,turn,s2} = deep frame: a row of empty window frames (gap m apart) along a curve; the first frame (w0×h0)
      stands at x mx / z zm, then s1 m straight back, an arc of radius rc turning left by turn°, s2 m straight; they shrink to the pane's size.
-   carousel.items: {empty:true} = frame only, {inner:true} = mesh outside, glass facing the centre; inner = windows standing inside the circle.
+   carousel.items: {empty:true} = frame only, {inner:true} = closed metal shutter outside, glass facing the centre; inner = windows standing inside the circle.
    spin:[pane indexes] (house) = spin boards on poles in front of those windows; type field + field:'flip' + flip:{bar,w,h,items,win|glass} = panels on a bar that tip over when kicked high.
    awn:true (house pane) = wire mesh over it, awning below that springs the ball up into the gap; revolver = revolving door with 4 glass wings.
    garage:{x,w,h,btn:{x,y}} (house) = garage with a closed roller shutter; the push button beside it opens it, and the parked SUV's rear window is a target. */
@@ -62,7 +62,7 @@ const LV=[
    {x:-5.4,y:6.1,w:2.4,h:2.1,prop:'vase',wall:0xe3d6f2,shutter:{phase:0}},{x:0,y:6.1,w:2.2,h:2.1,prop:'tv',wall:0xffe6b0},{x:5.4,y:6.1,w:2.4,h:2.1,prop:'tv',wall:0xd9efc6,armor:1}]}
 ];
 
-let level=0,LVL=null,group=null,panes=[],ballsLeft=0,used=0,won=false,cur=null,D=13,hintDone=false,door=null,grump=null,grumpT=-1;
+let level=0,LVL=null,group=null,panes=[],ballsLeft=0,used=0,won=false,cur=null,D=13,hintDone=false,hintMiss=0,door=null,grump=null,grumpT=-1;
 const balls=[],shards=[],debris=[],returned=[];
 let inBalls=0; /* balls that went into the house; the owner rolls them back out after the win */
 let timers=[];

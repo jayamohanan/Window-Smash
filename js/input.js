@@ -86,7 +86,7 @@ function kickLive(bp,pt,d,pk){
 function kickFx(){
   ballsLeft--;used++;drawBalls();sfx.kick();
   for(let i=0;i<14;i++)dust.emit(rnd(-.3,.3),.1,D+rnd(-.2,.2),rnd(-1.8,1.8),rnd(.6,2.2),rnd(-.5,1.5),rnd(.25,.5),[.72,.6,.42],3);
-  addShake(.1);if(!hintDone){hintDone=true;updateHint()}
+  addShake(.1);if(!hintDone){hintMiss++;updateHint()}
 }
 /* Live+: the launch is solved once, at the kick, then the ball is left to plain gravity and drag (no steering, no ceiling).
    Aim point = the swipe's highest point (× reachP from the ball) on screen; its depth is whatever the level shows there
@@ -152,7 +152,7 @@ function kick(s){
   ballsLeft--;used++;drawBalls();sfx.kick();
   for(let i=0;i<14;i++)dust.emit(rnd(-.3,.3),.1,D+rnd(-.2,.2),rnd(-1.8,1.8),rnd(.6,2.2),rnd(-.5,1.5),rnd(.25,.5),[.72,.6,.42],3);
   addShake(.1);
-  if(!hintDone){hintDone=true;updateHint()}
+  if(!hintDone){hintMiss++;updateHint()}
   later(.26,spawnBall);
 }
 

@@ -305,7 +305,7 @@ function buildStacks(){
 }
 
 /* ---------- carousel: windows on a circular track, widest at the front and back of the loop, edge-on at the sides.
-   Items can be empty frames, or have a mesh on the outside with the glass facing the centre (break those on the far side,
+   Items can be empty frames, or have a closed shutter on the outside with the glass facing the centre (break those on the far side,
    through a gap). Windows can also stand still inside the circle. ---------- */
 /* metal grille: light bars with a dark outline, drawn solid (alphaTest + depth) so it sorts properly against the glass */
 const meshTex=canvasTex(64,64,(g,w,h)=>{const bars=(c,lw)=>{g.strokeStyle=c;g.lineWidth=lw;g.beginPath();for(let i=0;i<=2;i++){g.moveTo(i*32,0);g.lineTo(i*32,h);g.moveTo(0,i*32);g.lineTo(w,i*32)}g.stroke()};bars('#2b3344',9);bars('#b9c3d1',4.5)});
@@ -318,8 +318,11 @@ function buildCarousel(L){
   o.items.forEach((d,i)=>{const p=Object.assign({},d),y=p.y,o0=obs.length;let sg;
     if(p.empty){sg=new T.Group();sg.position.set(0,y,o.z);group.add(sg);p.x=0;p.y=0;solidFrame(p,sg,0xfffaf0)}
     else{p.stop=true;p.moving=true;sg=freeStand(p,new T.Vector3(0,y,o.z));panes.push(p);
-      if(p.inner){addOb(box(p.w+.3,p.h+.3,.05,meshMat(p.w+.3,p.h+.3),0,0,.24,sg,false),'metal');
-        const mw=p.w+.44,mh=p.h+.44;[[mw,.14,0,mh/2],[mw,.14,0,-mh/2],[.14,mh,-mw/2,0],[.14,mh,mw/2,0]].forEach(a=>box(a[0],a[1],.1,0x7d8798,a[2],a[3],.26,sg,false))}}
+      if(p.inner){ /* a closed roller shutter on the outside (reads as solid metal, not as glass to break): slats, side rails, housing */
+        const sw=p.w+.3,sh=p.h+.3,n=Math.round(sh/.26),bh=sh/n;addOb(box(sw,sh,.05,0x7d8798,0,0,.24,sg,false),'metal');
+        for(let j=0;j<n;j++)box(sw+.02,bh*.9,.04,j%2?0x9aa6b8:0x8793a6,0,-sh/2+(j+.5)*bh,.28,sg,false);
+        [-1,1].forEach(k=>box(.14,sh,.12,0x5f6b80,k*(sw/2+.07),0,.28,sg,false));
+        addOb(box(sw+.4,.42,.5,0x5f6b80,0,sh/2+.21,.32,sg,false),'metal')}}
     obs.slice(o0).forEach(ob=>{if(ob.kind==='wood')ob.hit=carouselDeflect});
     [-1,1].forEach(s=>{box(.22,y-p.h/2,.22,c,s*(p.w/2+.1),-(y+p.h/2)/2,.1,sg);box(.24,.14,1.2,0x704b2c,s*(p.w/2+.1),-y+.07,.1,sg)});
     its.push({p,sg,th:i/n*Math.PI*2})});
