@@ -15,9 +15,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 #gl{touch-action:none;cursor:default}
 #fx{pointer-events:none}
 .hud{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));display:flex;align-items:center;gap:10px;pointer-events:none}
-#balls{display:flex;gap:4px;align-items:center;background:rgba(35,48,74,.85);padding:7px 10px;border-radius:10px}
-#balls i{width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 50% 50%,#23304a 0 28%,#fff 30%);box-shadow:inset 0 0 0 1px #9aa7bd;display:block}
-#balls i.used{opacity:.22}
+#balls{display:flex;flex-wrap:wrap;gap:4px;align-items:center;min-width:0;max-width:calc(100% - 170px);background:rgba(35,48,74,.85);padding:7px 10px;border-radius:10px}
+#balls i{width:17px;height:17px;display:block;flex:none}
+.hud .ib{flex:none}
+#balls svg{width:100%;height:100%;display:block}
+#balls i.used{opacity:.2;filter:grayscale(1)}
 #balls:empty{visibility:hidden}
 .spacer{flex:1}
 /* Level number, centred at the top */
@@ -28,7 +30,7 @@ html,body{height:100%;margin:0;overflow:hidden;background:#8fd0ee;font-family:va
 .ib:active{transform:scale(.92)}
 #soundBtn .off{display:none}#soundBtn.muted .off{display:inline}#soundBtn.muted .on{display:none}
 /* Dev-only tuning: small, low-contrast, bottom left */
-@media (max-width:560px){#lvlNo{top:calc(58px + env(safe-area-inset-top,0px));font-size:16px;padding:5px 12px}}
+@media (max-width:560px){#lvlNo{top:calc(70px + env(safe-area-inset-top,0px));font-size:16px;padding:5px 12px}}
 #gear{position:absolute;left:max(8px,env(safe-area-inset-left,0px));bottom:calc(8px + env(safe-area-inset-bottom,0px));width:28px;height:28px;padding:0;border:0;border-radius:8px;background:rgba(35,48,74,.18);color:rgba(255,248,232,.55);font-size:15px;cursor:pointer}
 #gear:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 #panel{position:absolute;bottom:calc(44px + env(safe-area-inset-bottom,0px));left:max(8px,env(safe-area-inset-left,0px));width:min(290px,calc(100vw - 24px));max-height:calc(100% - 80px);overflow:auto;background:var(--paper);border-radius:12px;padding:12px 14px;box-shadow:0 8px 0 rgba(35,48,74,.25);font-size:13px;display:grid;gap:8px}

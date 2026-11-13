@@ -62,7 +62,7 @@ function buildMech(L){
   if(L.towers)buildTowers(L);
   if(L.spin)buildSpins(L);
   if(L.night)buildNight(L);
-  if(L.cat)buildCat(L);
+  if(L.roam)buildRoam();
   if(L.board)buildBoard(L.board);
   (L.hedges||[]).forEach(buildHedge);
   if(L.porch)buildPorch();
@@ -648,63 +648,41 @@ function buildGantry(o){
   addOb(box(o.x*2+.36,.34,.34,c,0,o.y,.1,g),'metal');
 }
 
-/* ---------- cat: sits on the sill in front of one window and blocks it (a ball that reaches it is swatted away and lost).
-   After each kick is over it ducks down and pops up at another unbroken window; it never moves while a ball is in the air.
-   With one window left it gives up and sits on the chimney. ---------- */
-let catS=null;
-const catOn=p=>!!catS&&catS.pane===p;
-function buildCat(L){
-  const g=group,O=0xf29a3a,c=new T.Group();c.scale.setScalar(1.35);g.add(c);
-  const sp=(r,col,x,y,z,sx,sy,sz,par)=>{const m=new T.Mesh(new T.SphereGeometry(r,14,10),mat(col));m.position.set(x,y,z);m.scale.set(sx,sy,sz);(par||c).add(m);return m};
-  sp(.4,O,0,.38,0,1,1.05,.85);sp(.24,0xfff3e0,0,.34,.2,1,1.1,.6);
-  [-1,1].forEach(s=>sp(.13,0xfff3e0,s*.17,.08,.27,1,.6,1.2));
-  [-.1,.08].forEach(y=>box(.5,.05,.05,0xc9762a,0,.52+y,-.3,c,false));
-  const hd=new T.Group();hd.position.set(0,.92,.05);c.add(hd);
-  sp(.3,O,0,0,0,1.1,.95,1,hd);sp(.12,0xfff3e0,0,-.1,.23,1.3,.8,.8,hd);
-  const ears=[];
-  [-1,1].forEach(s=>{const e=new T.Mesh(new T.ConeGeometry(.11,.24,4),mat(O));e.position.set(s*.17,.27,0);e.rotation.z=-s*.28;hd.add(e);ears.push({e,s});
-    const ey=new T.Mesh(new T.SphereGeometry(.055,8,6),bmat(0x23304a));ey.position.set(s*.11,.04,.27);hd.add(ey);
-    [-1,1].forEach(k=>{const w=box(.3,.014,.014,0x23304a,s*.27,-.08+k*.035,.22,hd,false);w.rotation.z=s*k*.18})});
-  sp(.045,0xff8fa8,0,-.03,.31,1,1,1,hd);
-  const paw=new T.Group();paw.position.set(-.3,.55,.1);c.add(paw);sp(.1,0xfff3e0,0,-.3,0,1,1.6,1,paw);paw.rotation.z=-2.6;
-  const tail=new T.Group();tail.position.set(.3,.12,-.2);c.add(tail);box(.1,.8,.1,O,0,.4,0,tail,false);
-  catS={g:c,hd,tail,paw,ears,pane:null,roof:false,used:-1,anim:0,from:null,to:null,swatT:9,
-    roofAt:new T.Vector3(4,L.H+3.04,-3)};
-  const open=panes.filter(p=>!p.xf);catSit(open[(Math.random()*open.length)|0]);catS.used=used;
-  movers.push((t,dt)=>{const k=catS;
-    k.hd.rotation.y=Math.sin(t*.8)*.45;k.hd.rotation.z=Math.sin(t*.5)*.08;k.tail.rotation.z=-.45+Math.sin(t*2.6)*.35;
-    k.swatT+=dt;const sw=k.swatT<.35?Math.sin(k.swatT/.35*Math.PI):0;k.paw.rotation.z=-2.6+sw*1.9;k.paw.rotation.x=-sw*.9;
-    /* after a swat: ears flatten */
-    const fl=clamp(1-(k.swatT-.7)/.2,0,1);k.ears.forEach(a=>a.e.rotation.z=-a.s*(.28+fl*1.05));
-    /* a kick has happened and is over: move on */
-    if(k.used!==used&&!k.anim&&k.swatT>.95&&!won&&!balls.some(b=>b.state==='fly'))catNext();
-    if(k.anim){k.anim+=dt;const a=k.anim;
-      if(a<.2){const e=a/.2;k.g.scale.setScalar(1.35*(1-e));k.g.position.y=k.from.y-e*.4}
-      else{if(!k.placed){k.placed=true;catSit(k.to)}
-        const e=clamp((a-.2)/.28,0,1),o=1+Math.sin(e*Math.PI)*.18;k.g.scale.setScalar(1.35*e*o);k.g.position.y=k.base.y-(1-e)*.4;
-        if(e>=1){k.anim=0;k.g.position.y=k.base.y}}}
+/* ---------- roaming shutter: one roller shutter that covers one window at a time (a ball that reaches it clangs off).
+   Every window has a housing; the shutter moves only when a window breaks: it rolls up, then comes down over another
+   unbroken window. With one window left it rolls up and stays up. Windows with their own shutter are left alone. ---------- */
+let roam=null;
+const roamOn=p=>!!roam&&p.rf>0;
+const ROAM={wait:.45,up:.45,down:.45};
+function buildRoam(){
+  const list=panes.filter(p=>!p.xf&&!p.shutter);
+  list.forEach(p=>{
+    const top=p.y+p.h/2,bh=.26,n=Math.ceil(p.h/bh)+1,bars=[];
+    for(let j=0;j<n;j++){const m=box(p.w+.12,bh*.95,.07,j%2?0x9aa6b8:0x8793a6,p.x,top,.3,group,false);m.visible=false;bars.push(m)}
+    p.rHous=box(p.w+.5,.46,.56,0x5f6b80,p.x,top+.2,.36,group);p.rBars=bars;p.rf=0;p.shutF=0;p.shutY=top});
+  roam={list,pane:null,next:null,phase:'idle',t:0,broken:0,again:false};
+  const start=roamPick(null);if(start){start.rf=1;roam.pane=start}
+  movers.push((t,dt)=>{const r=roam;
+    const bc=panes.filter(p=>p.broken).length;
+    if(bc!==r.broken){r.broken=bc;if(r.phase==='idle'){r.phase='wait';r.t=0}else r.again=true}
+    if(r.phase!=='idle'){r.t+=dt;
+      if(r.phase==='wait'&&r.t>=ROAM.wait){r.phase='up';r.t=0;if(r.pane&&!r.pane.broken&&!won)sfx.rattleS()}
+      else if(r.phase==='up'){if(r.pane)r.pane.rf=Math.max(0,1-r.t/ROAM.up);
+        if(r.t>=ROAM.up){if(r.pane)r.pane.rf=0;const prev=r.pane;r.pane=null;r.next=won?null:roamPick(prev);r.phase=r.next?'down':'idle';r.t=0;if(r.next)sfx.rattleS()}}
+      else if(r.phase==='down'){r.next.rf=Math.min(1,r.t/ROAM.down);if(r.t>=ROAM.down){r.next.rf=1;r.pane=r.next;r.next=null;r.phase='idle'}}
+      if(r.phase==='idle'&&r.again){r.again=false;r.phase='wait';r.t=0}}
+    list.forEach(p=>{const top=p.y+p.h/2,bh=.26;
+      if(p.broken){p.rHous.visible=false;p.rBars.forEach(m=>m.visible=false);p.shutF=0;return}
+      const e=p.rf*p.rf*(3-2*p.rf),yb=top-e*p.h;p.shutF=e;p.shutY=yb;
+      p.rBars.forEach((m,j)=>{const cy=yb+(j+.5)*bh;m.position.y=cy;m.visible=e>.003&&cy-bh/2<top})});
   });
 }
-/* Put the cat on a window's sill (or the chimney when p is null). */
-function catSit(p){
-  const k=catS;k.pane=p;k.roof=!p;
-  k.base=p?new T.Vector3(p.x,p.y-p.h/2-.25,p.boards?.85:.62):k.roofAt.clone(); /* sits further out in front of nailed boards */k.g.position.copy(k.base);
-}
-function catNext(){
-  const k=catS;k.used=used;if(k.roof)return;
-  const open=panes.filter(p=>!p.broken&&!p.xf);if(!open.length)return;
-  const others=open.filter(p=>p!==k.pane);
-  k.from=k.g.position.clone();k.to=open.length===1?null:others[(Math.random()*others.length)|0]; /* null = the chimney */
-  k.placed=false;k.anim=1e-4;k.pane=null; /* nothing is blocked while it hops */
-}
-/* The ball reaches the cat's window: the cat swats it back out. */
-function catHit(b){
-  const k=catS;if(!k||!k.pane||k.anim||b.ghost||b.v.z>=0)return;const p=k.pane;
-  const zf=k.base.z+.75;if(b.p.z>zf||b.p.z<ZF||Math.abs(b.p.x-p.x)>p.w/2+R*.6||b.p.y>p.y+p.h/2+R*.6||b.p.y<p.y-p.h/2-.3)return;
-  b.p.z=zf;b.live=false;b.state='bounce';b.age=Math.min(b.age,.4);b.a.set(0,-S.gravity,0);
-  b.v.set(b.v.x*.4+(b.p.x<p.x?-2:2),Math.max(2.5,b.v.y*.3),Math.abs(b.v.z)*.35+2);
-  k.swatT=0;sfx.mrrp();addShake(.18);
-  for(let i=0;i<18;i++)dust.emit(b.p.x,b.p.y,b.p.z,rnd(-2,2),rnd(-1,2.4),rnd(0,2),rnd(.25,.5),[.95,.62,.25],2);
+/* Next window for the shutter: a random unbroken one other than where it was; none when only one window is left. */
+function roamPick(prev){
+  if(panes.filter(p=>!p.broken).length<2&&prev)return null;
+  const c=roam.list.filter(p=>!p.broken&&p!==prev&&!(p.armor>0));
+  const pool=c.length?c:roam.list.filter(p=>!p.broken&&p!==prev);
+  return pool.length?pool[(Math.random()*pool.length)|0]:null;
 }
 
 /* ---------- island hop, in two steps: break the glass frames on the near island; each frame clears away with its glass;
@@ -765,7 +743,7 @@ function hopStart(){hop.stage=1.4;hop.t=0;if(drag){drag=null;hidePreview()}if(cu
 let sw=null,pads=[];
 function aimTargets(){
   const a=[];
-  panes.forEach(p=>{if(p.broken||p.locked||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||catOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
+  panes.forEach(p=>{if(p.broken||p.locked||p.sky||p.oneWay||p.narrow||p.aimOff||p.awn||(p.front&&!p.front.broken)||roamOn(p)||(p.shutter&&p.shutter.lock&&p.unlockT===undefined))return;
     if(revolver&&p.moving&&p.c){_tv.copy(p.c).sub(revolver.rot.position).applyAxisAngle(_ty,revolver.om*.55).add(revolver.rot.position);a.push({x:_tv.x,y:_tv.y,z:_tv.z,w:p.w,h:p.h,vx:0});return} /* revolving door: lead the wing by ~0.55 s of turn */
     a.push({x:p.c?p.c.x:p.x,y:p.c?p.c.y:p.y,z:p.c?p.c.z:ZF,w:p.w,h:p.h,vx:p.vx||0})});
   if(revolver){const f=revFront();if(f.some(w=>!w.p.broken)){const c=revolver.rot.position,w0=revolver.wings[0].p;a.push({x:c.x,y:w0.c.y,z:c.z+.5,w:.9,h:w0.h,vx:0})}} /* open V: pull toward its corner */
@@ -888,7 +866,7 @@ function padHit(b){
   if(!pads.length||b.ghost||b.sunk||b.state==='inside'||b.state==='dead')return;
   padCatch(b);if(b.v.y>1)return;
   for(const pd of pads){const dx=b.p.x-pd.x,dz=b.p.z-pd.z;if(dx*dx+dz*dz>pd.r*pd.r||b.p.y>pd.top+R)continue;
-    let best=null;panes.forEach(p=>{if(p.broken||catOn(p)||p.xf||Math.abs(p.x-pd.x)>3)return;if(!best||p.y<best.y)best=p});
+    let best=null;panes.forEach(p=>{if(p.broken||roamOn(p)||p.xf||Math.abs(p.x-pd.x)>3)return;if(!best||p.y<best.y)best=p});
     const g=S.gravity,Tt=1.3;b.p.y=pd.top+R;b.live=false;b.state='fly';b.age=0;b.a.set(0,-g,0);b.padded=true;b.padLock=null;
     if(best)b.v.set((best.x-b.p.x)/Tt,(best.y-b.p.y+.5*g*Tt*Tt)/Tt,(ZF-.3-b.p.z)/Tt);else b.v.set(b.v.x*.5,13,Math.min(b.v.z,-4));
     pd.t=0;sfx.boing();for(let i=0;i<16;i++)dust.emit(b.p.x,pd.top,b.p.z,rnd(-2,2),rnd(.5,2),rnd(-2,2),rnd(.2,.4),[.95,.95,1],2);

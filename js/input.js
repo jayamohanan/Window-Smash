@@ -8,7 +8,7 @@ function shotFrom(d){
   if(S.mode==='aim'){ndc.set(e.x/W_*2-1,1-e.y/H_*2);ray.setFromCamera(ndc,camera);if(!ray.ray.intersectPlane(plane,hitV))hitV.set(0,3,ZF);t.copy(hitV)}
   else{const u=Math.min(W_,H_);t.set((e.x-a.x)/u*26,.4+(a.y-e.y)/u*15,ZF)}
   t.x=clamp(t.x,-16,16);t.y=clamp(t.y,.35,13);t.z=ZF;
-  let best=null,bd=1e9;panes.forEach(p=>{if(p.broken||p.xf||catOn(p))return;const dd=Math.hypot(t.x-p.x,t.y-p.y),r=Math.hypot(p.w,p.h)/2+1.4;if(dd<r&&dd<bd){bd=dd;best=p}});
+  let best=null,bd=1e9;panes.forEach(p=>{if(p.broken||p.xf||roamOn(p))return;const dd=Math.hypot(t.x-p.x,t.y-p.y),r=Math.hypot(p.w,p.h)/2+1.4;if(dd<r&&dd<bd){bd=dd;best=p}});
   if(best&&S.snap>0){t.x=lerp(t.x,best.x,S.snap);t.y=lerp(t.y,best.y,S.snap)}
   let bend=0;const dx=e.x-a.x,dy=e.y-a.y,len=Math.hypot(dx,dy);
   if(len>40){let mx=0;d.pts.forEach(q=>{const c=(dx*(q.y-a.y)-dy*(q.x-a.x))/len;if(Math.abs(c)>Math.abs(mx))mx=c});const r=mx/len;if(Math.abs(r)>.07)bend=clamp(r,-.5,.5)}
@@ -55,7 +55,7 @@ function liveMove(e){
   if(cur&&cur.born>=.12){const bp=ballPx();
     if(!d.armed&&segDist(d.last,pt,bp)<=bp.r*S.grab)d.armed=true;
     if(d.armed&&pt.y<bp.y&&Math.hypot(pt.x-bp.x,pt.y-bp.y)>=bp.r*S.ring){
-      if(S.mode==='livep'){const sv=swipeVel(d);d.go={t:pt.t,pk:Math.hypot(sv.x,sv.y)};setTimeout(()=>{if(drag===d&&d.go)firePlus(d)},400)}
+      if(isPlus()){const sv=swipeVel(d);d.go={t:pt.t,pk:Math.hypot(sv.x,sv.y)};setTimeout(()=>{if(drag===d&&d.go)firePlus(d)},400)}
       else kickLive(bp,pt,d);}}
   d.last=pt;
 }
@@ -74,7 +74,7 @@ function kickLive(bp,pt,d,pk){
   const b=cur;cur=null;b.live=true;b.state='fly';b.age=0;
   const sv=swipeVel(d),spd=(pk===undefined?Math.hypot(sv.x,sv.y):pk)/Math.min(W_,H_);
   let P=clamp(6+spd*S.power,6,32);
-  const plus=S.mode==='livep';
+  const plus=isPlus();
   if(plus){kickPlus(b,bp,pt,spd);balls.push(b);d.steer=b;kickFx();return}
   let dx=sv.x,dy=sv.y;if(plus||spd<.2||dy>-1){dx=pt.x-bp.x;dy=pt.y-bp.y}
   const rowY=toScreen(0,2.8,ZF)[1],k=(bp.y-rowY)/Math.max(1,-dy);
@@ -103,7 +103,9 @@ function kickPlus(b,bp,pt,spd){
   const g=S.gravity,dx=_aim.x-b.p.x,dz=b.p.z-_aim.z,h=Math.max(.5,Math.hypot(dx,dz)),dy=_aim.y-b.p.y;
   b.plus=true;b.live=true;b.lift=0;b.a.set(0,-g,0);
   if(spd<S.flick){const P=clamp(6+spd*S.power,6,12);b.P=P;b.vn=P*.3;b.v.set(dx/h*P,b.vn,-dz/h*P);return}
-  const t=Math.max(Math.sqrt(2*Math.max(dy+S.arcP,.4)/g),h/S.pMax);
+  /* Strong: flight time from a fixed hard speed, so the ball is driven almost straight at the point (still a slight curve) */
+  const strong=S.mode==='lives'&&!(LVL&&LVL.lob);
+  const t=strong?h/S.pStr:Math.max(Math.sqrt(2*Math.max(dy+S.arcP,.4)/g),h/S.pMax);
   let vh=h/t,vy=(dy+.5*g*t*t)/t;
   const k=1+.004*Math.hypot(vh,vy)*t*.5;vh*=k;vy*=k; /* rough make-up for air drag */
   b.P=Math.hypot(vh,vy);b.vn=vy;b.v.set(dx/h*vh,vy,-dz/h*vh);

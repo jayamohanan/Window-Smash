@@ -46,8 +46,8 @@ const sfx={
   rustle(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',2600,.6,.55,.26);noise(t+.04,'highpass',4200,.8,.3,.18);noise(t,'lowpass',400,.8,.4,.08)},
   crack(){if(!can())return;const t=ac.currentTime;noise(t,'highpass',3000,.8,.9,.07);tone(t,'triangle',2400,1800,.3,.09);tone(t,'sine',300,90,.45,.1);for(let i=0;i<6;i++)tone(t+.02+i*.02,'triangle',rnd(3000,6000),rnd(2500,5000),.08,.04)},
   wood(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',900,1.2,1,.13);tone(t,'triangle',220,90,.6,.14);for(let i=0;i<5;i++)noise(t+.03+i*.03,'bandpass',rnd(1200,2400),2,.35,.05)},
-  /* the cat: a tiny, quiet rolled chirp, not a full meow */
-  mrrp(){if(!can())return;const t=ac.currentTime,o=ac.createOscillator(),l=ac.createOscillator(),d=ac.createGain(),b=ac.createBiquadFilter(),g=ac.createGain();o.type='triangle';o.frequency.setValueAtTime(420,t);o.frequency.linearRampToValueAtTime(640,t+.06);o.frequency.exponentialRampToValueAtTime(470,t+.17);b.type='lowpass';b.frequency.value=1500;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.15,t+.025);g.gain.exponentialRampToValueAtTime(.001,t+.19);l.frequency.value=30;d.gain.value=.05;l.connect(d);d.connect(g.gain);o.connect(b);b.connect(g);g.connect(master);o.start(t);l.start(t);o.stop(t+.21);l.stop(t+.21)},
+  /* the roaming shutter moving: a short run of metal clicks */
+  rattleS(){if(!can())return;const t=ac.currentTime;for(let i=0;i<7;i++)noise(t+i*.06,'bandpass',rnd(1500,2600),4,.1*(1-i/9),.03)},
   splash(){if(!can())return;const t=ac.currentTime;noise(t,'lowpass',900,.8,.9,.35);noise(t+.02,'bandpass',2200,.7,.4,.22);tone(t,'sine',320,110,.4,.18)},
   whoosh(){if(!can())return;const t=ac.currentTime;noise(t,'bandpass',500,.7,.35,1.1);noise(t+.25,'bandpass',900,.7,.25,.8)},
   ding(){if(!can())return;const t=ac.currentTime;tone(t,'sine',1320,1320,.5,1.2);tone(t,'triangle',2640,2630,.18,.8);tone(t,'sine',1980,1975,.12,1)},

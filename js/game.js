@@ -90,7 +90,7 @@ function stepBall(b,dt){
     const z0=b.p.z;_pp.copy(b.p);awnStep(b,h);b.v.addScaledVector(b.a,h);b.p.addScaledVector(b.v,h);
     const was=b.state;
     if((was==='fly'||was==='ground'||was==='bounce')&&!b.ghost&&b.tun!==1&&z0>ZF&&b.p.z<=ZF){crossPlane(b);if(b.state===was&&!(was==='bounce'&&b.v.z>0)&&LVL.type!=='field')b.state='passed'} /* field levels have no house wall at ZF: the ball is still in flight */
-    if(b.state!=='inside'&&b.state!=='dead'){revPocket(b);skyHit(b,_pp);tunnelHit(b);shutTrickStep(b);hitObs(b);padHit(b);catHit(b);wheelHit(b)}
+    if(b.state!=='inside'&&b.state!=='dead'){revPocket(b);skyHit(b,_pp);tunnelHit(b);shutTrickStep(b);hitObs(b);padHit(b);wheelHit(b)}
     if(b.state==='inside'&&b.pane&&!b.pane.room.hit&&b.p.distanceTo(b.pane.room.target)<.62){propSmash(b.pane,b)}
     const fl=b.floor!==undefined?b.floor:R;
     if(b.p.y<fl){if(hop&&b.floor===undefined&&isleTouch(b))continue;if(pond&&b.floor===undefined&&pondTouch(b))continue;b.p.y=fl;

@@ -16,7 +16,7 @@ Status: **Built** · **Planned** (in the next-build queue) · **Backlog** (not s
 | 13 | Rail Riders | Windows on a ground rail and hanging from a gantry |
 | 14 | Carousel | Windows on a circular track, narrow at the sides; some need 2 kicks |
 | 15 | Inner Ring | Carousel of glass and empty frames, with windows standing inside the circle |
-| 16 | Mind the Cat | Cat on a sill swats the ball |
+| 16 | Moving Shutter | One roller shutter covers a window; it moves to another window each time one breaks |
 | 17 | Aquarium | Tank of compartments on a stand in a pond; the fish drop into the pond and swim |
 | 18 | Island Hop | Two steps: break the glass frames on the near island, camera flies there, then the house |
 | 19 | Stormy Mill | Windmill + strong wind |

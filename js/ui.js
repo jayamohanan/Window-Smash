@@ -9,7 +9,7 @@ function chips(){
 }
 $('lvlRow').innerHTML=LV.map((L,i)=>'<button class="chip" data-lvl="'+i+'" title="'+L.name+'">'+(i+1)+'</button>').join('');
 function buildSliders(){
-  const tags=S.mode==='live'?['live','live1']:S.mode==='livep'?['live','plus']:['old'];
+  const tags=S.mode==='live'?['live','live1']:S.mode==='livep'?['live','plus']:S.mode==='lives'?['live','plus','strong']:['old'];
   const vis=SL.filter(a=>!a[5]||tags.includes(a[5]));
   $('sliders').innerHTML=vis.map(a=>'<label for="s_'+a[0]+'"><span>'+a[1]+'</span><output id="o_'+a[0]+'"></output><input id="s_'+a[0]+'" type="range" min="'+a[2]+'" max="'+a[3]+'" step="'+a[4]+'"></label>').join('');
   vis.forEach(a=>{const i=$('s_'+a[0]),o=$('o_'+a[0]);i.value=S[a[0]];o.textContent=S[a[0]];i.oninput=()=>{S[a[0]]=+i.value;o.textContent=i.value;save()}});
@@ -30,7 +30,7 @@ $('fail').addEventListener('pointerdown',()=>{initAudio();if(!$('panel').hidden)
 /* number keys jump to a level: digits within 350 ms of each other make one number (2 then 3 = level 23); unknown numbers do nothing */
 let numBuf='',numT=0;
 function numKey(d){numBuf+=d;clearTimeout(numT);const go=()=>{const n=+numBuf;numBuf='';if(n>=1&&n<=LV.length){failing=false;loadLevel(n-1)}};if(numBuf.length>=2)go();else numT=setTimeout(go,350)}
-addEventListener('keydown',e=>{if(/^[0-9]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!/INPUT|TEXTAREA/.test(e.target.tagName)){numKey(e.key);return}if(e.key==='m'||e.key==='M'){const o=['live','livep','aim','shape'];S.mode=o[(o.indexOf(S.mode)+1)%o.length];save();buildSliders();chips();failing=false;reloadLevel();pop('Control: '+S.mode,0,4,0,true)}else if(e.key==='r'||e.key==='R'){failing=false;reloadLevel()}else if((e.key===' '||e.key==='Enter')&&won&&level<LV.length-1){e.preventDefault();advance()}else if((e.key===' '||e.key==='Enter')&&failT>=0){e.preventDefault();retry()}});
+addEventListener('keydown',e=>{if(/^[0-9]$/.test(e.key)&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!/INPUT|TEXTAREA/.test(e.target.tagName)){numKey(e.key);return}if(e.key==='m'||e.key==='M'){const o=['live','livep','lives','aim','shape'];S.mode=o[(o.indexOf(S.mode)+1)%o.length];save();buildSliders();chips();failing=false;reloadLevel();pop('Control: '+S.mode,0,4,0,true)}else if(e.key==='r'||e.key==='R'){failing=false;reloadLevel()}else if((e.key===' '||e.key==='Enter')&&won&&level<LV.length-1){e.preventDefault();advance()}else if((e.key===' '||e.key==='Enter')&&failT>=0){e.preventDefault();retry()}});
 addEventListener('resize',layout);
 
 buildSliders();
